@@ -1,0 +1,45 @@
+[package]
+name = "mawaqit_desktop"
+version = "0.1.0"
+description = "Mawaqit Desktop"
+authors = ["Bilel Eljaamii"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "mawaqit_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+mawaqit-api = { path = "../mawaqit-api" }
+tauri = { version = "2.11.6", features = ["image", "tray-icon"] }
+tauri-plugin-opener = "2.5.5"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+chrono = "0.4.45"
+thiserror = "2.0.21"
+tokio = "1.53.1"
+tauri-plugin-autostart = "2.5.1"
+image = "0.25.10"
+dirs = "7.0.0"
+tauri-plugin-notification = "2.4.0"
+rodio = { version = "0.22.2", features = ["symphonia-mp3"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Notification actions (click to stop the athan) need the freedesktop
+# notification API directly; the Tauri plugin has no action support here.
+notify-rust = "4.18.0"
+
+[features]
+# Production/standalone builds embed the frontend (`../dist`) and serve it
+# through the tauri protocol. Without this feature the binary expects the
+# Vite dev server on localhost:1420 (`pnpm tauri dev`) and shows
+# "Could not connect to localhost" when it is not running.
+custom-protocol = ["tauri/custom-protocol"]

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mawaqit Desktop</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <div id="mosque-title">
+          <span class="mosque-icon">☪</span>
+          <span id="mosque-name">Mawaqit</span>
+        </div>
+        <nav id="tabs">
+          <button class="tab active" id="tab-today" data-view="today">Today</button>
+          <button class="tab" id="tab-month" data-view="month">Month</button>
+        </nav>
+        <button id="settings-btn" title="Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </button>
+      </header>
+
+      <main id="main">
+        <!-- Shown when no mosque is configured yet -->
+        <section id="onboarding" class="view" hidden>
+          <div class="onboarding-card">
+            <div class="onboarding-logo">☪</div>
+            <h1>Mawaqit Desktop</h1>
+            <p>
+              Prayer times from your mosque, right in your tray.<br />
+              No account needed — just find your mosque.
+            </p>
+
+            <div class="form-group">
+              <label for="ob-search">Find your mosque</label>
+              <div class="search-row">
+                <input type="text" id="ob-search" placeholder="e.g. Paris mosque" />
+                <button class="btn btn-primary" id="ob-search-btn">Search</button>
+              </div>
+            </div>
+            <ul id="ob-results" class="results-list"></ul>
+            <div id="ob-status" class="status-msg"></div>
+          </div>
+        </section>
+
+        <!-- Today view — mawaqit.net display style -->
+        <section id="view-today" class="view" hidden>
+          <div class="display-clock" id="current-clock">--:--</div>
+
+          <div class="next-bloc">
+            <div class="next-label" id="next-label">Next prayer</div>
+            <div class="next-name" id="next-name">—</div>
+            <div class="big-countdown" id="next-countdown">--:--</div>
+          </div>
+
+          <div class="custom-times" id="custom-times" hidden>
+            <div class="custom-time" id="ct-shurouq" hidden>
+              <span class="ct-name">Shurouq</span>
+              <span class="ct-value" id="ct-shurouq-val">—</span>
+            </div>
+            <div class="custom-time" id="ct-jumua" hidden>
+              <span class="ct-name">Jumu'a</span>
+              <span class="ct-value"><span id="ct-jumua-val">—</span><span id="ct-jumua2-val" class="ct-extra"></span></span>
+            </div>
+          </div>
+
+          <div class="prayers" id="prayer-row"></div>
+        </section>
+
+        <!-- Month view -->
+        <section id="view-month" class="view" hidden>
+          <div class="month-controls">
+            <button class="btn btn-small" id="month-prev">&larr;</button>
+            <span id="month-label">—</span>
+            <button class="btn btn-small" id="month-next">&rarr;</button>
+            <div class="segmented">
+              <button class="seg active" id="seg-adhan">Adhan</button>
+              <button class="seg" id="seg-iqama">Iqama</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="month-table"></table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Settings dialog -->
+    <div class="overlay" id="overlay" hidden></div>
+    <div id="settings-dialog" hidden>
+      <h2>Settings</h2>
+
+      <div class="form-group">
+        <label>Current mosque</label>
+        <div id="set-current-mosque" class="current-mosque">—</div>
+        <div class="search-row">
+          <input type="text" id="set-search" placeholder="Search another mosque…" />
+          <button class="btn" id="set-search-btn">Search</button>
+        </div>
+        <ul id="set-results" class="results-list"></ul>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-group">
+          <input type="checkbox" id="set-sound" />
+          <span>Play athan sound at adhan time</span>
+        </label>
+        <label class="checkbox-group">
+          <input type="checkbox" id="set-iqama" />
+          <span>Notify at iqama time</span>
+        </label>
+        <label class="checkbox-group">
+          <input type="checkbox" id="set-autostart" />
+          <span>Run at startup (minimized to tray)</span>
+        </label>
+      </div>
+
+      <div id="set-status" class="status-msg"></div>
+      <div class="actions">
+        <button id="cancel-btn" class="btn">Cancel</button>
+        <button id="save-btn" class="btn btn-primary">Save Settings</button>
+      </div>
+    </div>
+
+    <button id="stop-athan-btn" class="stop-athan" hidden>&#9209; Stop athan</button>
+    <div id="toast" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

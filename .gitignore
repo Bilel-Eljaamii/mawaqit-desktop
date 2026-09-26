@@ -1,0 +1,145 @@
+# ------------------------------------------------------------------------------
+# Dependencies
+# ------------------------------------------------------------------------------
+node_modules/
+jspm_packages/
+fuzz/target/
+fuzz/artifacts/
+fuzz/corpus/
+.npm/
+
+# ------------------------------------------------------------------------------
+# Build Outputs & Artifacts
+# ------------------------------------------------------------------------------
+.cache/
+.nuxt/
+.output/
+.vercel/
+.vite/
+analyse/
+build/
+dist-ssr/
+dist/
+mutants*/
+out/
+target/
+
+# ------------------------------------------------------------------------------
+# Testing & Coverage
+# ------------------------------------------------------------------------------
+.nyc_output/
+.vitest/
+coverage/
+junit.xml
+test-results/
+
+# ------------------------------------------------------------------------------
+# Database & State
+# ------------------------------------------------------------------------------
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ------------------------------------------------------------------------------
+# Environment Variables & Secrets
+# ------------------------------------------------------------------------------
+.env
+.env.development.local
+.env.local
+.env.production.local
+.env.test.local
+*.key
+*.pem
+credentials.json
+
+# ------------------------------------------------------------------------------
+# Logs & Debugging
+# ------------------------------------------------------------------------------
+*.db-journal
+*.db-shm
+*.db-wal
+*.db*
+*.log
+*.sqlite*
+lerna-debug.log*
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ------------------------------------------------------------------------------
+# OS & System Files
+# ------------------------------------------------------------------------------
+._*
+.DS_Store
+.DS_Store?
+.Spotlight-V100
+.Trashes
+*.backup
+Desktop.ini
+ehthumbs.db
+Thumbs.db
+
+# ------------------------------------------------------------------------------
+# IDEs & Editor Configuration
+# ------------------------------------------------------------------------------
+.idea/
+.project
+.settings/
+.vim/
+*.swo
+*.swp
+*~
+
+# ------------------------------------------------------------------------------
+# AI Assistants / Agent Workspaces
+# ------------------------------------------------------------------------------
+.antigravitycli/
+.bar/
+.cargo/advisories-db/db.lock
+.claude*
+.cline/
+.cursor/
+.env.*.local
+.gemini/
+.kilo/
+.kilocode/
+.opencode/
+.swarm/
+.windsurf/
+.worktrees/
+.zcode/
+*agent*/
+*mcp.json
+agentdb*
+claude*.*
+data/
+harness/
+
+# ------------------------------------------------------------------------------
+# Optional NPM & TS specific
+# ------------------------------------------------------------------------------
+.npmrc
+.tsbuildinfo
+.eslintcache
+
+# ------------------------------------------------------------------------------
+# Project Specific
+# ------------------------------------------------------------------------------
+docs/api/
+docs/architecture/
+docs/benchmarks/
+docs/compliance/
+docs/pdf-export/
+mutants.out*/
+backupmzmory.json
+repo-profile.json
+opencode.json
+harness-plan.json
+Notes.md
+bundle.json
+.zcodeignore

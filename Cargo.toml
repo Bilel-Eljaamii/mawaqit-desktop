@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["mawaqit-api", "src-tauri"]
+exclude = ["fuzz"]
+
+[profile.release]
+strip = true
+opt-level = 3

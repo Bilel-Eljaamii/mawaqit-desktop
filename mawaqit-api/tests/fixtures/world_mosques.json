@@ -1,0 +1,788 @@
+[
+ {
+  "continent": "Europe",
+  "city": "Paris",
+  "name": "DŽEMAT BOSNIAQUES PARIS",
+  "slug": "dzemat-paris-le-pre-saint-gervais-93500-france"
+ },
+ {
+  "continent": "Europe",
+  "city": "Paris",
+  "name": "GRANDE MOSQUÉE DE PARIS",
+  "slug": "grande-mosquee-de-paris"
+ },
+ {
+  "continent": "Europe",
+  "city": "Paris",
+  "name": "Foyer Hautpoul",
+  "slug": "foyer-hautpoul-paris"
+ },
+ {
+  "continent": "Europe",
+  "city": "London",
+  "name": "Darul Quran London Masjid",
+  "slug": "dar-ul-quran-london-london-nw1-1hw-united-kingdom"
+ },
+ {
+  "continent": "Europe",
+  "city": "London",
+  "name": "ICC Bandon",
+  "slug": "icc-bandon-cork-bandon-p72ad92-ireland"
+ },
+ {
+  "continent": "Europe",
+  "city": "London",
+  "name": "Loudoun Islamic Center",
+  "slug": "loudoun-islamic-center-leesburg-united-states"
+ },
+ {
+  "continent": "Europe",
+  "city": "Berlin",
+  "name": "Berlin Mosque",
+  "slug": "berlin-mosque-berlin-10713-germany"
+ },
+ {
+  "continent": "Europe",
+  "city": "Berlin",
+  "name": "BBF Verein",
+  "slug": "bbf-verein-freiburg-79110-germany"
+ },
+ {
+  "continent": "Europe",
+  "city": "Berlin",
+  "name": "Iman Verein",
+  "slug": "iman-wadenswil"
+ },
+ {
+  "continent": "Europe",
+  "city": "Madrid",
+  "name": "Madni Masjid",
+  "slug": "madni-masjid-nottingham-ng7-6hx-united-kingdom"
+ },
+ {
+  "continent": "Europe",
+  "city": "Madrid",
+  "name": "Madni Masjid",
+  "slug": "madni-masjid-cardiff-cf24-4se-united-kingdom"
+ },
+ {
+  "continent": "Europe",
+  "city": "Madrid",
+  "name": "Banbury Madni Masjid",
+  "slug": "banbury-madni-masjid-banbury-ox16-4rx-united-kingdom"
+ },
+ {
+  "continent": "Europe",
+  "city": "Rome",
+  "name": "Belle Rose Sunnee Masjid",
+  "slug": "belle-rose-sunnee-masjid-quatre-bornes-72108-mauritius"
+ },
+ {
+  "continent": "Europe",
+  "city": "Rome",
+  "name": "MOSQUEE AL-ILM (Flamants Rose)",
+  "slug": "mosquee-al-ilm-flamants-rose-montpellier-34080-france"
+ },
+ {
+  "continent": "Europe",
+  "city": "Rome",
+  "name": "masjeed alboshra",
+  "slug": "masjeed-alboshra-roma-00049-italy-1"
+ },
+ {
+  "continent": "Europe",
+  "city": "Amsterdam",
+  "name": "Džemat Amsterdam",
+  "slug": "dzemat-amsterdam-zwanenburg-dennenlaan-1161ct-netherlands"
+ },
+ {
+  "continent": "Europe",
+  "city": "Amsterdam",
+  "name": "Moskee Salaam",
+  "slug": "assalam-amsterdam"
+ },
+ {
+  "continent": "Europe",
+  "city": "Amsterdam",
+  "name": "مسجد امام ابوحنیفه امستردام",
+  "slug": "masjid-imam-abu-hanifa-amsterdam-amsterdam-1032-jz-netherlands"
+ },
+ {
+  "continent": "Europe",
+  "city": "Brussels",
+  "name": "ANDERLECHT MERKEZ CAMII",
+  "slug": "anderlecht-merkez-camii-brussels-1070-belgium"
+ },
+ {
+  "continent": "Europe",
+  "city": "Brussels",
+  "name": "Mosquée d'Évry-Courcouronnes",
+  "slug": "mosquee-evry"
+ },
+ {
+  "continent": "Europe",
+  "city": "Brussels",
+  "name": "Masjidut Tawheed",
+  "slug": "masjidut-tawheed-johannesburg-2093-south-africa"
+ },
+ {
+  "continent": "Europe",
+  "city": "Vienna",
+  "name": "Association des musulmans de Vienne Malissol",
+  "slug": "m-vienne-malissol"
+ },
+ {
+  "continent": "Europe",
+  "city": "Vienna",
+  "name": "Faizan e Madina Vicenza",
+  "slug": "faizan-e-madina-vicenza-acp-36100-vicenza-italy"
+ },
+ {
+  "continent": "Europe",
+  "city": "Vienna",
+  "name": "Mosquée de Bienne- Bieler Moschee",
+  "slug": "centre-islamique-de-bienne"
+ },
+ {
+  "continent": "Europe",
+  "city": "Manchester",
+  "name": "Al-Sunnah Mosque Manchester",
+  "slug": "al-sunnah-mosque-manchester-manchester-m8-9pb-united-kingdom"
+ },
+ {
+  "continent": "Europe",
+  "city": "Manchester",
+  "name": "Islamic Society of Winchester",
+  "slug": "isow"
+ },
+ {
+  "continent": "Europe",
+  "city": "Manchester",
+  "name": "Muslim Community Center of Winchester",
+  "slug": "muslim-community-center-of-winchester-stephenson-22656-united-states"
+ },
+ {
+  "continent": "Europe",
+  "city": "Lyon",
+  "name": "(  LYON 69002 ) مسجد السلام",
+  "slug": "perrache-lyon"
+ },
+ {
+  "continent": "Europe",
+  "city": "Lyon",
+  "name": "Mosquée Centrale LYON DITIB",
+  "slug": "mosquee-centrale-lyon-ditib-decines-charpieu-69150-france"
+ },
+ {
+  "continent": "Europe",
+  "city": "Lyon",
+  "name": "Grande mosquée de Lyon",
+  "slug": "grande-mosquee-de-lyon-lyon-69008-france"
+ },
+ {
+  "continent": "Africa",
+  "city": "Cairo",
+  "name": "مسجد الحاجة روحية",
+  "slug": "msjd-lhajh-rwhyh-cairo-11786-msr"
+ },
+ {
+  "continent": "Africa",
+  "city": "Cairo",
+  "name": "Eyup Sultan Roubaix",
+  "slug": "eyup-sultan-roubaix-roubaix-59100-france"
+ },
+ {
+  "continent": "Africa",
+  "city": "Cairo",
+  "name": "مسجد العلم النافع",
+  "slug": "msjd-l-lm-lnf-nouveau-caire-4710001-egypt"
+ },
+ {
+  "continent": "Africa",
+  "city": "Lagos",
+  "name": "Unity (Iklas) Masjid Vientiane",
+  "slug": "iklas-vientiane"
+ },
+ {
+  "continent": "Africa",
+  "city": "Lagos",
+  "name": "Masjid Azahar",
+  "slug": "azahar-vientiane"
+ },
+ {
+  "continent": "Africa",
+  "city": "Lagos",
+  "name": "Jamia Masjid -  مسجد جامعہ وینچان",
+  "slug": "vientiane"
+ },
+ {
+  "continent": "Africa",
+  "city": "Nairobi",
+  "name": "جمعية الفلاح",
+  "slug": "lflh-bagnoli-di-sopra-35023-italy"
+ },
+ {
+  "continent": "Africa",
+  "city": "Casablanca",
+  "name": "مسجد الدار البيضاء سرقسطة- Casablanca",
+  "slug": "msjd-ldr-lbyd-zaragoza-50009-spain"
+ },
+ {
+  "continent": "Africa",
+  "city": "Casablanca",
+  "name": "مولاي إسماعيل-سيدي مومن الدار البيضاء",
+  "slug": "moulay-ismail-casablanca-20400-morocco"
+ },
+ {
+  "continent": "Africa",
+  "city": "Casablanca",
+  "name": "مسجد الأدارسة",
+  "slug": "msjd-ldrs-casablanca-20190-morocco"
+ },
+ {
+  "continent": "Africa",
+  "city": "Algiers",
+  "name": "Alges Jam-e Masjid",
+  "slug": "alges-jam-e-mosque-lisboa-1495-040-portugal"
+ },
+ {
+  "continent": "Africa",
+  "city": "Algiers",
+  "name": "مسجد أبي بكر الصديق",
+  "slug": "masjid-abi-bakr-lsidiq-algiers-16200-algeria"
+ },
+ {
+  "continent": "Africa",
+  "city": "Algiers",
+  "name": "ACT Mosquée Akşemseddin",
+  "slug": "act-mosquee-aksemseddin-angers-49000-france"
+ },
+ {
+  "continent": "Africa",
+  "city": "Tunis",
+  "name": "مسجد سيدي ڨويسم",
+  "slug": "msjd-sydy-qwysm-tunis-1006-tunisia"
+ },
+ {
+  "continent": "Africa",
+  "city": "Tunis",
+  "name": "Al Houda Mosque جامع الهدى",
+  "slug": "al-houda-mosque-jm-lhd-tunis-1001-tunisia"
+ },
+ {
+  "continent": "Africa",
+  "city": "Tunis",
+  "name": "جامع حي الروضة",
+  "slug": "masjid-hay-lrouda-tunis-2052-tunisia"
+ },
+ {
+  "continent": "Africa",
+  "city": "Dakar",
+  "name": "Masjid Tawhid DAKAR HANN",
+  "slug": "masjid-tawhid-dakar-liberte-47299-senegal"
+ },
+ {
+  "continent": "Africa",
+  "city": "Dakar",
+  "name": "Orphelinat Dakar دار الأيتام دكارالسنغال",
+  "slug": "orphelinat-dakar-sebikotane-sebikhotane-11840-senegal"
+ },
+ {
+  "continent": "Africa",
+  "city": "Dakar",
+  "name": "MASJID ABU BAKAR",
+  "slug": "association-union-pierrefitte-sur-seine-93380-france"
+ },
+ {
+  "continent": "Africa",
+  "city": "Accra",
+  "name": "Mosquée ACRA les rosiers",
+  "slug": "mosquee-acra-marseille-13014-france"
+ },
+ {
+  "continent": "Africa",
+  "city": "Accra",
+  "name": "Mountari",
+  "slug": "mountari-accra-lomnava-ghana"
+ },
+ {
+  "continent": "Africa",
+  "city": "Accra",
+  "name": "Masjid Al-Firdaws",
+  "slug": "masjid-al-firdaws-accra-233-ghana"
+ },
+ {
+  "continent": "Africa",
+  "city": "Khartoum",
+  "name": "مسجد الإصلاح / شيخ سليم رحمه الله تعالى",
+  "slug": "msjd-laslah-shykh-slym-rhmh-llh-t-ly-khartoum-11111-lswdan"
+ },
+ {
+  "continent": "Africa",
+  "city": "Abidjan",
+  "name": "Masjid AL-ABIDIN",
+  "slug": "masjid-al-abidin-bruxelles-1000-belgium"
+ },
+ {
+  "continent": "Africa",
+  "city": "Abidjan",
+  "name": "Mosquée Cissé Mamadou",
+  "slug": "mosquee-cisse-mamadou-abidjan-09-bp-1470-abidjan-09-cote-divoire"
+ },
+ {
+  "continent": "Africa",
+  "city": "Abidjan",
+  "name": "Mosquée Oumar Ibn Khattab-Bingerville",
+  "slug": "mosquee-omar-ibn-khattab-de-bingerville-abidjan-1387-cote-divoire"
+ },
+ {
+  "continent": "Asia",
+  "city": "Istanbul",
+  "name": "Pirinççi Köyü Cami",
+  "slug": "-49"
+ },
+ {
+  "continent": "Asia",
+  "city": "Istanbul",
+  "name": "ŞEHİT TAHSİN GEREKLİ CAMİİ",
+  "slug": "-12"
+ },
+ {
+  "continent": "Asia",
+  "city": "Istanbul",
+  "name": "Hacı Mustafa Özyazıcı Cami",
+  "slug": "haci-mustafa-ozyazici-cami-34852-istanbul-turkiye"
+ },
+ {
+  "continent": "Asia",
+  "city": "Jakarta",
+  "name": "Masjid Nurusysyifa Plant Jakarta",
+  "slug": "masjid-nurusysyifa-plant-jakarta-jakarta-timur-13930-indonesia"
+ },
+ {
+  "continent": "Asia",
+  "city": "Jakarta",
+  "name": "Zakaria Islamic Academy",
+  "slug": "zakaria-islamic-academy-chantilly-20152-united-states"
+ },
+ {
+  "continent": "Asia",
+  "city": "Jakarta",
+  "name": "Lokeren Diyanet Sakarya Camii",
+  "slug": "lokeren-diyanet-sakarya-camii-lokeren-9160-belgium"
+ },
+ {
+  "continent": "Asia",
+  "city": "Kuala Lumpur",
+  "name": "Madrasah Al-Hilaliah",
+  "slug": "madrasah-al-hilaliah-kuala-lumpur-53100-malaysia"
+ },
+ {
+  "continent": "Asia",
+  "city": "Kuala Lumpur",
+  "name": "Xhamia \"Sahat Kulla\"",
+  "slug": "xhamija-sahat-kulla-peje-30000-albania"
+ },
+ {
+  "continent": "Asia",
+  "city": "Kuala Lumpur",
+  "name": "Surau Al-Hidayah - Taman Mega Jaya",
+  "slug": "surau-al-hidayah-taman-mega-jaya-cheras-56100-malaysia"
+ },
+ {
+  "continent": "Asia",
+  "city": "Karachi",
+  "name": "Veysel Karani Cami",
+  "slug": "veysel-karani-cami-schleswig-schleswig-24837-germany"
+ },
+ {
+  "continent": "Asia",
+  "city": "Karachi",
+  "name": "Mosquée de Karack",
+  "slug": "mosquee-de-karack-dakar-12000-senegal"
+ },
+ {
+  "continent": "Asia",
+  "city": "Karachi",
+  "name": "VEYS-EL KARANI CAMII",
+  "slug": "veys-el-karani-camii-kaltenkirchen-24568-germany"
+ },
+ {
+  "continent": "Asia",
+  "city": "Dhaka",
+  "name": "SARA BUILDER LIMITED MOSQUE",
+  "slug": "sara-builder-limited-mosque-dhaka-1207-bangladesh"
+ },
+ {
+  "continent": "Asia",
+  "city": "Dhaka",
+  "name": "Uttara 7no Sector Jame Masjid Society",
+  "slug": "uttara-7no-sector-jame-masjid-society-uttara-dhaka-1230-bangladesh"
+ },
+ {
+  "continent": "Asia",
+  "city": "Dhaka",
+  "name": "Mirpur DOHS Masjid no. 3",
+  "slug": "mirpur-dohs-mosque-no-3-dhaka-1216-bangladesh"
+ },
+ {
+  "continent": "Asia",
+  "city": "Dubai",
+  "name": "Mosquée Dubaï Ouaga",
+  "slug": "mosquee-dubai-ouaga-ouagadougou-00226-burkina-faso"
+ },
+ {
+  "continent": "Asia",
+  "city": "Dubai",
+  "name": "مسجد مي راشد مصبح الفتان (رحمها الله)",
+  "slug": "mia-rashed-musbbah-alfattan-masjid-dubai-00000-united-arab-emirates"
+ },
+ {
+  "continent": "Asia",
+  "city": "Dubai",
+  "name": "مسجد غمران راشد بوقراعة",
+  "slug": "ghumran-rashid-bugarah-dubai-00000-united-arab-emirates"
+ },
+ {
+  "continent": "Asia",
+  "city": "Doha",
+  "name": "Mosquée Thierno Mountaga Daha Tall",
+  "slug": "mosquee-keur-thierno-mountaga-daha-tall-louga-31000-senegal"
+ },
+ {
+  "continent": "Asia",
+  "city": "Doha",
+  "name": "Mirpur DOHS Central Masjid",
+  "slug": "mirpur-dohs-central-masjid-dhaka-1216-bangladesh"
+ },
+ {
+  "continent": "Asia",
+  "city": "Doha",
+  "name": "جامع عثمان ابن عفان",
+  "slug": "jami-uthman-bin-affan-luqta-doha-qatar"
+ },
+ {
+  "continent": "Asia",
+  "city": "Manila",
+  "name": "Madina masjid",
+  "slug": "madina-masjid-helsinki-00900-finland"
+ },
+ {
+  "continent": "Asia",
+  "city": "Manila",
+  "name": "Madina Masjid",
+  "slug": "madina-masjid-arganda-del-rey-28500-spain"
+ },
+ {
+  "continent": "Asia",
+  "city": "Manila",
+  "name": "Faizane Madina",
+  "slug": "faizane-madina-sevilla-41007-spain"
+ },
+ {
+  "continent": "Asia",
+  "city": "Mumbai",
+  "name": "Al Mumtaz",
+  "slug": "al-mumtaz-bandung-40623-indonesia"
+ },
+ {
+  "continent": "Asia",
+  "city": "Baku",
+  "name": "Abou Bakr Essedik",
+  "slug": "mosquee-abou-bakr-essedik-roubaix-59100-france"
+ },
+ {
+  "continent": "Asia",
+  "city": "Baku",
+  "name": "Abou Bakr ( Mistral )",
+  "slug": "abou-bakr-grenoble-38100-france"
+ },
+ {
+  "continent": "Asia",
+  "city": "Baku",
+  "name": "Mosquee Abou Bakr",
+  "slug": "mosquee-abou-bakr-epernay-51200-france-1"
+ },
+ {
+  "continent": "Asia",
+  "city": "Singapore",
+  "name": "Masjid Haji Yusoff",
+  "slug": "masjid-haji-yusoff-singapore-548920-singapore"
+ },
+ {
+  "continent": "Asia",
+  "city": "Singapore",
+  "name": "Al-Khair Mosque | Darul Tafsir",
+  "slug": "al-khair-mosque-darul-tafsir-choa-chu-kang-688847-singapore"
+ },
+ {
+  "continent": "Asia",
+  "city": "Beirut",
+  "name": "Beit Naballa Mosque",
+  "slug": "beit-naballa-mosque-winnipeg-r3j-3c3-canada"
+ },
+ {
+  "continent": "Asia",
+  "city": "Beirut",
+  "name": "Centre Islamique Berat de Luxembourg",
+  "slug": "centre-islamique-berat-de-luxembourg-esch-sur-alzette-4260-luxembourg"
+ },
+ {
+  "continent": "Asia",
+  "city": "Beirut",
+  "name": "مسجد القاضي - Masjid Alqady",
+  "slug": "masjid-alqady-hawally-12500-kuwait"
+ },
+ {
+  "continent": "North America",
+  "city": "New York",
+  "name": "PPMJ NEW MASJID",
+  "slug": "ppmj-new-masjid-allumoodu-kaniapuram-tvm-695301-india"
+ },
+ {
+  "continent": "North America",
+  "city": "New York",
+  "name": "Anatolia Islamic Center North York",
+  "slug": "anatolia-north-york"
+ },
+ {
+  "continent": "North America",
+  "city": "New York",
+  "name": "York Way Muslim Community Centre",
+  "slug": "york-way-mosque-camden-n7-9qh-united-kingdom"
+ },
+ {
+  "continent": "North America",
+  "city": "Chicago",
+  "name": "Masjid Almuhajireen /AAEC",
+  "slug": "aaec-chicago"
+ },
+ {
+  "continent": "North America",
+  "city": "Toronto",
+  "name": "Masjid Toronto",
+  "slug": "masjid-toronto-mac"
+ },
+ {
+  "continent": "North America",
+  "city": "Toronto",
+  "name": "Centro rayan Torino مسجد الريان",
+  "slug": "centro-rayan-torino-torino-10148-italy"
+ },
+ {
+  "continent": "North America",
+  "city": "Toronto",
+  "name": "Moschea Mohammed VI di Torino",
+  "slug": "moschea-mohammed-vi-di-torino-torino-10127-italy"
+ },
+ {
+  "continent": "North America",
+  "city": "Montreal",
+  "name": "مسجد السلام - Montréal",
+  "slug": "alsalam-mtl"
+ },
+ {
+  "continent": "North America",
+  "city": "Montreal",
+  "name": "Musalla Al-Amin - Montréal",
+  "slug": "al-amin-mtl"
+ },
+ {
+  "continent": "North America",
+  "city": "Montreal",
+  "name": "Bel Agir - الإحسان - Montréal",
+  "slug": "bel-agir-mtl"
+ },
+ {
+  "continent": "North America",
+  "city": "Houston",
+  "name": "Moskee Houten - مسجد هاوتن",
+  "slug": "moskee-houten-houten"
+ },
+ {
+  "continent": "North America",
+  "city": "Houston",
+  "name": "Mishkah Masjid",
+  "slug": "mishkah-masjid-houston-77054-united-states"
+ },
+ {
+  "continent": "North America",
+  "city": "Houston",
+  "name": "DITIB Lille Fatih Cami",
+  "slug": "ditip-lille-fatih-cami-lille-59800-france"
+ },
+ {
+  "continent": "North America",
+  "city": "Los Angeles",
+  "name": "Les Compagnons",
+  "slug": "les-compagnons-limoges-87000-france-1"
+ },
+ {
+  "continent": "North America",
+  "city": "Los Angeles",
+  "name": "مسجد ابي بكر الصديق ANGLES",
+  "slug": "msjd-bw-bkr-angles-nourdindhine-gmail-com-spain"
+ },
+ {
+  "continent": "North America",
+  "city": "Los Angeles",
+  "name": "Mosquee les Coteaux",
+  "slug": "mosquee-les-coteaux-creteil"
+ },
+ {
+  "continent": "North America",
+  "city": "Miami",
+  "name": "The Islamic School of Miami- Masjid Noor",
+  "slug": "masjid-noor-miami-33186-united-states"
+ },
+ {
+  "continent": "North America",
+  "city": "Miami",
+  "name": "MOHABBOT ALI MIAJI CENTRAL JAME MOSJID",
+  "slug": "mhabbot-ali-miaji-central-jame-mosjid-sahnagar-4353-bangladesh"
+ },
+ {
+  "continent": "North America",
+  "city": "Miami",
+  "name": "Masjid Al-Ihsaan",
+  "slug": "masjid-al-ihsaan-miami-33157-united-states"
+ },
+ {
+  "continent": "South America",
+  "city": "Sao Paulo",
+  "name": "MOSQUEE DE VILLERS-ST-PAUL",
+  "slug": "mosquee-villers-st-paul"
+ },
+ {
+  "continent": "South America",
+  "city": "Sao Paulo",
+  "name": "Centro Culturale Atlas San Daniele",
+  "slug": "associazione-culturale-atlas-odv-san-daniele-del-friuli-33038-italie"
+ },
+ {
+  "continent": "South America",
+  "city": "Sao Paulo",
+  "name": "Comunidad islámica San Rafael",
+  "slug": "comunidad-islamica-san-rafael-ontinyent-46870-spain"
+ },
+ {
+  "continent": "South America",
+  "city": "Buenos Aires",
+  "name": "Musallah Haazimi مصلى الحازمية",
+  "slug": "haazimi-musallah-buenos-aires-c1214"
+ },
+ {
+  "continent": "South America",
+  "city": "Buenos Aires",
+  "name": "مسجد النور",
+  "slug": "msjd-lnwr-ventas-de-zafarraya-18125-spain"
+ },
+ {
+  "continent": "South America",
+  "city": "Buenos Aires",
+  "name": "Mezquita Al Ahmad",
+  "slug": "mezquita-al-ahmad-1541-alberti-buenos-aires-argentina"
+ },
+ {
+  "continent": "South America",
+  "city": "Bogota",
+  "name": "Masdjid Bilal",
+  "slug": "masjid-bilal-tsingoni-97680-france"
+ },
+ {
+  "continent": "South America",
+  "city": "Bogota",
+  "name": "AL MUHAJIRIN",
+  "slug": "al-muhajirin-bogor-16810-indonesia"
+ },
+ {
+  "continent": "South America",
+  "city": "Bogota",
+  "name": "MASJID AL MUHAJIRIN",
+  "slug": "masjid-al-muhajirin-bogor-16710-indonesia"
+ },
+ {
+  "continent": "South America",
+  "city": "Lima",
+  "name": "Masjid Jamek Simpang Lima, Bagan",
+  "slug": "masjid-jamek-simpang-lima-batu-pahat-83020-malaysia"
+ },
+ {
+  "continent": "South America",
+  "city": "Lima",
+  "name": "Liga Islamica din Republica Moldova",
+  "slug": "muftiatul-musulmanilor-din-moldova"
+ },
+ {
+  "continent": "South America",
+  "city": "Lima",
+  "name": "Mezquita de Magdalena del mar",
+  "slug": "mezquita-de-magdalena-del-mar-lima-07921-peru"
+ },
+ {
+  "continent": "South America",
+  "city": "Santiago",
+  "name": "Centro culturale islamico di Maniago",
+  "slug": "moschea-di-maniago-maniago-33085-italy-1"
+ },
+ {
+  "continent": "South America",
+  "city": "Santiago",
+  "name": "المركز الاسلامي الثقافي بارانخويس",
+  "slug": "centro-cultural-islamico-aranjuez-aranjuez-madrid-spain"
+ },
+ {
+  "continent": "South America",
+  "city": "Santiago",
+  "name": "Mezquita As-Salam",
+  "slug": "mezquita-as-salam-santiago-7770353-chile-1"
+ },
+ {
+  "continent": "Oceania",
+  "city": "Sydney",
+  "name": "Stoney Lane Islamic Community Centre",
+  "slug": "stoney-lane-islamic-community-centre-birmingham-b128aj-united-kingdom"
+ },
+ {
+  "continent": "Oceania",
+  "city": "Sydney",
+  "name": "Kellyville-Closed, Relocation in progres",
+  "slug": "kellyville-sydney-2155-australia-1"
+ },
+ {
+  "continent": "Oceania",
+  "city": "Sydney",
+  "name": "Eton Mosque & Education Centre Burton",
+  "slug": "parker-street-mosque-burton-on-trent-de14-2rd-united-kingdom"
+ },
+ {
+  "continent": "Oceania",
+  "city": "Melbourne",
+  "name": "Al Bayyinah Islamic Centre",
+  "slug": "al-bayyinah-islamic-centre-melbourne-3175-australia"
+ },
+ {
+  "continent": "Oceania",
+  "city": "Melbourne",
+  "name": "isbc",
+  "slug": "isbc-melbourne"
+ },
+ {
+  "continent": "Oceania",
+  "city": "Melbourne",
+  "name": "Masjid IMCV - Surau Kita",
+  "slug": "masjid-imcv-surau-kita-coburg-north-melbourne-3058-australia"
+ },
+ {
+  "continent": "Oceania",
+  "city": "Auckland",
+  "name": "Birkenhead Islamic Centre",
+  "slug": "suhail-patel-auckland-0626-new-zealand"
+ },
+ {
+  "continent": "Oceania",
+  "city": "Auckland",
+  "name": "As-Sunnah",
+  "slug": "as-sunnah-clarence-rockland-k4k-1c7-canada"
+ }
+]

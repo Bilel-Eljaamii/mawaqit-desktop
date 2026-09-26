@@ -1,0 +1,603 @@
+:root {
+  --bg: #080808;
+  --bg-panel: #1b1e21;
+  --card: rgba(0, 0, 0, 0.6);
+  --card-solid: #131618;
+  --text: #ffffff;
+  --text-soft: #bdbbbb;
+  --border: #3b3b3b;
+  --accent: #ffd05f;
+  --accent-dark: #f0ad4e;
+  --green: #1fa463;
+  --danger: #b0413e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 15px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background:
+    radial-gradient(ellipse at 50% -20%, #262b30 0%, transparent 55%),
+    var(--bg);
+}
+
+/* Mosque picture behind everything, dimmed like mawaqit.net does. */
+#app.with-image {
+  background:
+    linear-gradient(0deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.72)),
+    var(--mosque-image, none) center / cover no-repeat,
+    var(--bg);
+}
+
+/* ---------- Top bar ---------- */
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.45);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(4px);
+  z-index: 5;
+}
+
+#mosque-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 1.05rem;
+  min-width: 0;
+}
+
+#mosque-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mosque-icon {
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+
+#tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.tab {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.tab.active {
+  background: rgba(255, 208, 95, 0.14);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+#settings-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#settings-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+/* ---------- Main layout ---------- */
+
+#main {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+
+.view {
+  max-width: 860px;
+  margin: 0 auto;
+  height: 100%;
+}
+
+/* ---------- Onboarding ---------- */
+
+.onboarding-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px;
+  max-width: 480px;
+  margin: 8vh auto 0;
+  text-align: center;
+  backdrop-filter: blur(6px);
+}
+
+.onboarding-logo {
+  font-size: 2.6rem;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.onboarding-card h1 {
+  margin: 0 0 10px;
+  font-size: 1.6rem;
+}
+
+.onboarding-card p {
+  color: var(--text-soft);
+  margin: 0 0 26px;
+  line-height: 1.5;
+}
+
+.onboarding-card .form-group {
+  text-align: left;
+}
+
+/* ---------- Forms ---------- */
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-soft);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+input::placeholder {
+  color: #7d7d7d;
+}
+
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 208, 95, 0.18);
+}
+
+.search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.search-row input {
+  flex: 1;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1b1e21;
+}
+
+.btn-primary:hover {
+  background: var(--accent-dark);
+}
+
+.btn-primary[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-small {
+  padding: 6px 12px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.status-msg {
+  min-height: 1.2em;
+  font-size: 0.9rem;
+  color: #ff8f8c;
+  margin-top: 4px;
+}
+
+.results-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.results-list li {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.92rem;
+}
+
+.results-list li:last-child {
+  border-bottom: none;
+}
+
+.results-list li:hover {
+  background: rgba(255, 208, 95, 0.12);
+}
+
+.results-list li.empty {
+  color: var(--text-soft);
+  cursor: default;
+}
+
+.results-list li.empty:hover {
+  background: transparent;
+}
+
+/* ---------- Today view (mawaqit.net display) ---------- */
+
+#view-today {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.72);
+}
+
+.display-clock {
+  font-size: 1.4rem;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.next-bloc {
+  text-align: center;
+}
+
+.next-label {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+.next-name {
+  font-size: 2.4rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  margin: 4px 0;
+}
+
+.big-countdown {
+  font-size: 4.6rem;
+  line-height: 1.1;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+.custom-times {
+  display: flex;
+  gap: 24px;
+}
+
+.custom-time {
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 18px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ct-name {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--text-soft);
+}
+
+.ct-value {
+  font-size: 1.15rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-extra {
+  color: var(--text-soft);
+  font-weight: 400;
+}
+
+.prayers {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.prayer {
+  flex: 1;
+  max-width: 148px;
+  background: var(--card);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 14px 8px;
+  text-align: center;
+}
+
+.prayer.next {
+  border-color: var(--accent);
+  background: rgba(255, 208, 95, 0.1);
+}
+
+.prayer .name {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  color: var(--text-soft);
+}
+
+.prayer.next .name {
+  color: var(--accent);
+}
+
+.prayer .time {
+  font-size: 1.55rem;
+  font-weight: 700;
+  margin: 6px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.prayer .wait {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  min-height: 1.1em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Month view ---------- */
+
+.month-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+#month-label {
+  font-weight: 600;
+  font-size: 1.1rem;
+  min-width: 130px;
+  text-align: center;
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-left: 12px;
+}
+
+.seg {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-soft);
+}
+
+.seg.active {
+  background: var(--accent);
+  color: #1b1e21;
+  font-weight: 600;
+}
+
+.table-wrap {
+  background: var(--card-solid);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: auto;
+  max-height: calc(100vh - 190px);
+}
+
+#month-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+#month-table th,
+#month-table td {
+  padding: 8px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.9rem;
+}
+
+#month-table th {
+  position: sticky;
+  top: 0;
+  background: #1f2429;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+#month-table td:first-child,
+#month-table th:first-child {
+  font-weight: 600;
+}
+
+#month-table tr.today-row {
+  background: rgba(255, 208, 95, 0.1);
+}
+
+#month-table tr.today-row td:first-child {
+  color: var(--accent);
+}
+
+/* ---------- Settings dialog ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+  z-index: 1000;
+}
+
+#settings-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 24px;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  z-index: 1001;
+  width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+#settings-dialog h2 {
+  margin: 0 0 20px;
+  font-size: 1.3rem;
+}
+
+.current-mosque {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+/* ---------- Toast ---------- */
+
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #262b30;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  font-size: 0.9rem;
+  max-width: 80vw;
+}
+
+#toast.error {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ---------- Athan stop ---------- */
+
+.stop-athan {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1500;
+  background: var(--danger);
+  border: none;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.stop-athan:hover {
+  filter: brightness(1.12);
+}

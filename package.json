@@ -1,0 +1,54 @@
+{
+  "name": "mawaqit-desktop",
+  "description": "Mawaqit prayer-times desktop app (Tauri 2)",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.17.0",
+  "scripts": {
+    "dev": "vite",
+    "dev:app": "tauri dev",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+
+    "check": "tsc --noEmit",
+    "check:rust": "cargo check --workspace",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest --passWithNoTests",
+    "fmt:rust": "cargo fmt --all",
+    "lint:rust": "cargo clippy --workspace",
+
+    "build:help": "node -e \"console.log(['mawaqit-desktop build targets:','','  pnpm build                  frontend only (tsc + vite, feeds tauri build)','  pnpm build:linux            .deb + .rpm + AppImage  (Linux host)','  pnpm build:arch             AppImage for Arch/Manjaro  (Linux host)','  pnpm build:debian           .deb  (Linux host)','  pnpm build:fedora           .rpm  (Linux host)','  pnpm build:rpi5             native build on the Pi  (Linux arm64 host)','  pnpm build:rpi5:cross       cross-compile from x86_64 Linux (needs aarch64 cross toolchain + arm64 sysroot libs)','  pnpm build:windows          .msi + NSIS setup  (Windows host)','  pnpm build:windows:msi      .msi only  (Windows host)','  pnpm build:windows:nsis     NSIS setup only  (Windows host)','  pnpm build:macos            .app + .dmg  (macOS host)','  pnpm build:macos:universal  x86_64 + arm64 universal binary  (macOS host)','  pnpm target:rpi5            one-time: rustup target add aarch64-unknown-linux-gnu','  pnpm target:macos           one-time: rustup target add aarch64-apple-darwin x86_64-apple-darwin','  pnpm sync:version           copy package.json version into tauri.conf.json + Cargo.toml'].join('\\n'))\"",
+
+    "sync:version": "node -e \"const fs=require('fs');const v=require('./package.json').version;const q='\\x22';const t='src-tauri/tauri.conf.json';const c='src-tauri/Cargo.toml';fs.writeFileSync(t,fs.readFileSync(t,'utf8').replace(new RegExp(q+'version'+q+': '+q+'[^'+q+']+'+q),q+'version'+q+': '+q+v+q));fs.writeFileSync(c,fs.readFileSync(c,'utf8').replace(new RegExp('^version = '+q+'[^'+q+']*'+q,'m'),'version = '+q+v+q));console.log('synced version '+v+' -> tauri.conf.json + Cargo.toml')\"",
+
+    "build:linux": "node -e \"process.platform==='linux'||(console.error('build:linux requires a Linux host'),process.exit(1))\" && APPIMAGE_EXTRACT_AND_RUN=1 tauri build --bundles deb,rpm,appimage",
+    "build:arch": "node -e \"process.platform==='linux'||(console.error('build:arch requires a Linux host (produces an AppImage that runs on Arch/Manjaro and any glibc distro)'),process.exit(1))\" && APPIMAGE_EXTRACT_AND_RUN=1 tauri build --bundles appimage",
+    "build:debian": "node -e \"process.platform==='linux'||(console.error('build:debian requires a Linux host (deb bundling is Linux-only)'),process.exit(1))\" && tauri build --bundles deb",
+    "build:fedora": "node -e \"process.platform==='linux'||(console.error('build:fedora requires a Linux host (rpm bundling is Linux-only)'),process.exit(1))\" && tauri build --bundles rpm",
+    "build:rpi5": "node -e \"(process.platform==='linux'&&process.arch==='arm64')||(console.error('build:rpi5 must run on the Raspberry Pi 5 itself (Linux arm64); from x86_64 use: pnpm build:rpi5:cross'),process.exit(1))\" && rustup target add aarch64-unknown-linux-gnu && tauri build --target aarch64-unknown-linux-gnu --bundles deb",
+    "build:rpi5:cross": "node -e \"(process.platform==='linux'&&process.arch==='x64')||(console.error('build:rpi5:cross must run on x86_64 Linux; on the Pi itself use: pnpm build:rpi5'),process.exit(1))\" && CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig tauri build --target aarch64-unknown-linux-gnu --bundles deb",
+    "build:windows": "node -e \"process.platform==='win32'||(console.error('build:windows requires a Windows host (WiX/msi and NSIS bundling is Windows-only)'),process.exit(1))\" && tauri build --bundles msi,nsis",
+    "build:windows:msi": "node -e \"process.platform==='win32'||(console.error('build:windows:msi requires a Windows host'),process.exit(1))\" && tauri build --bundles msi",
+    "build:windows:nsis": "node -e \"process.platform==='win32'||(console.error('build:windows:nsis requires a Windows host'),process.exit(1))\" && tauri build --bundles nsis",
+    "build:macos": "node -e \"process.platform==='darwin'||(console.error('build:macos requires a macOS host (app/dmg bundling is macOS-only); run pnpm target:macos once first'),process.exit(1))\" && tauri build --bundles app,dmg",
+    "build:macos:universal": "node -e \"process.platform==='darwin'||(console.error('build:macos:universal requires a macOS host; run pnpm target:macos once first'),process.exit(1))\" && rustup target add aarch64-apple-darwin x86_64-apple-darwin && tauri build --target universal-apple-darwin --bundles app,dmg",
+
+    "target:rpi5": "rustup target add aarch64-unknown-linux-gnu",
+    "target:macos": "rustup target add aarch64-apple-darwin x86_64-apple-darwin"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-autostart": "^2.5.1",
+    "@tauri-apps/plugin-notification": "^2.4.0",
+    "@tauri-apps/plugin-opener": "^2.5.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
+    "happy-dom": "^20.14.5",
+    "typescript": "5.9.3",
+    "vite": "8.3.1",
+    "vitest": "^5.0.2"
+  }
+}

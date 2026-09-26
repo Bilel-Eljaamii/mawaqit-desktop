@@ -1,0 +1,24 @@
+# Ultimate Rust Formatting Configuration
+max_width = 90
+tab_spaces = 4
+edition = "2024"
+newline_style = "Unix"
+use_small_heuristics = "Max"
+indent_style = "Block"
+
+# Imports
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+
+# Code Style
+fn_single_line = false
+where_single_line = true
+combine_control_expr = true
+struct_lit_single_line = true
+
+# Comments
+wrap_comments = true
+normalize_comments = true
+
+# Stability
+unstable_features = true
