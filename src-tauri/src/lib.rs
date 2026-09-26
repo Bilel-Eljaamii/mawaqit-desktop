@@ -38,8 +38,10 @@ pub fn run() {
         ])
         .setup(|app| {
             // Make the mawaqit icon show up in the application menu, dock
-            // and taskbar for the portable binary too.
+            // and taskbar for the portable binary too, and keep the
+            // autostart entry pointing at this binary.
             infrastructure::desktop::ensure_menu_entry();
+            infrastructure::desktop::ensure_autostart_entry();
 
             if let Some(window) = app.get_webview_window("main") {
                 if let Ok(img) = image::load_from_memory(include_bytes!("../icons/icon.png")) {

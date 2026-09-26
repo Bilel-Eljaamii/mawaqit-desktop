@@ -5,7 +5,8 @@ use std::sync::OnceLock;
 use std::thread;
 use std::time::Duration;
 
-use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
+use rodio::mixer::Mixer;
+use rodio::{Decoder, DeviceSinkBuilder, Player};
 
 /// Embedded so the adhan plays no matter where the app is launched from.
 const ATHAN_MP3: &[u8] = include_bytes!("../../assets/athan.mp3");
@@ -48,25 +49,26 @@ pub fn is_playing() -> bool {
     PLAYING.load(Ordering::SeqCst)
 }
 
-/// Dedicated thread owning the audio device: rodio's `Sink` is neither Send
-/// nor Clone, so playback state lives here and control goes over a channel.
+/// Dedicated thread owning the audio device, so playback state never has to
+/// cross threads; control goes over a channel.
 fn spawn_audio_thread() -> Sender<Command> {
     let (tx, rx) = mpsc::channel::<Command>();
     thread::spawn(move || {
-        let Ok((_stream, handle)) = OutputStream::try_default() else {
+        let Ok(device) = DeviceSinkBuilder::open_default_sink() else {
             eprintln!("No audio output device available for athan playback");
             PLAYING.store(false, Ordering::SeqCst);
             return;
         };
+        let mixer = device.mixer().clone();
 
-        let mut current: Option<Sink> = None;
+        let mut current: Option<Player> = None;
         loop {
             match rx.recv_timeout(PLAYBACK_POLL) {
                 Ok(Command::Play) => {
                     if let Some(sink) = &current {
                         sink.stop();
                     }
-                    match play_once(&handle) {
+                    match play_once(&mixer) {
                         Ok(sink) => current = Some(sink),
                         Err(e) => {
                             eprintln!("{e}");
@@ -95,13 +97,12 @@ fn spawn_audio_thread() -> Sender<Command> {
     tx
 }
 
-fn play_once(handle: &OutputStreamHandle) -> Result<Sink, String> {
-    let sink =
-        Sink::try_new(handle).map_err(|e| format!("Could not open audio sink: {e}"))?;
+fn play_once(mixer: &Mixer) -> Result<Player, String> {
+    let player = Player::connect_new(mixer);
     let source = Decoder::new(Cursor::new(ATHAN_MP3))
         .map_err(|e| format!("Could not decode embedded athan.mp3: {e}"))?;
-    sink.append(source);
-    Ok(sink)
+    player.append(source);
+    Ok(player)
 }
 
 #[cfg(test)]

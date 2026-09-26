@@ -56,6 +56,39 @@ fn write_if_changed(path: &PathBuf, bytes: &[u8]) {
     }
 }
 
+/// Heal the autostart entry: the autostart plugin rewrites
+/// `~/.config/autostart/mawaqit-desktop.desktop` with the running binary's
+/// path whenever the setting is toggled, which can leave it pointing at an
+/// old build that then fails at login. Whenever an entry exists but points
+/// somewhere else, repoint it at this binary. A missing entry means the user
+/// turned autostart off — never resurrect it.
+pub fn ensure_autostart_entry() {
+    let Some(config_dir) = dirs::config_dir() else {
+        return;
+    };
+    let path = config_dir.join("autostart").join(format!("{APP_ICON_NAME}.desktop"));
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    let desired = format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Version=1.0\n\
+         Name={APP_ICON_NAME}\n\
+         Comment=mawaqit-desktop startup script\n\
+         Exec={} --minimized\n\
+         StartupNotify=false\n\
+         Terminal=false\n",
+        exe.display()
+    );
+
+    if let Ok(existing) = fs::read_to_string(&path) {
+        if existing != desired {
+            let _ = fs::write(&path, desired);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
