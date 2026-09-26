@@ -54,6 +54,25 @@ pnpm build:arch       # AppImage only
 
 Artifacts land in `target/release/bundle/`.
 
+### Windows from Linux (cross-compile)
+
+Building the Windows exe on a Linux host works through [cargo-xwin](https://github.com/rustcross/cargo-xwin)
+(MSVC target + the Windows SDK downloaded automatically, ~1 GB on first run):
+
+```sh
+rustup target add x86_64-pc-windows-msvc
+cargo install --locked cargo-xwin
+pnpm build:windows:cross
+```
+
+This produces the portable `target/x86_64-pc-windows-msvc/release/mawaqit_desktop.exe`
+(Windows 10/11 ship the WebView2 runtime it needs). The NSIS `*-setup.exe` installer
+step additionally requires `wine` (`sudo pacman -S wine` on Arch/Manjaro) to run the
+Windows makensis; without wine the exe still builds but the installer step fails.
+For signed, dependency-free installers without local tooling, push a `v*` tag —
+`.github/workflows/release.yml` builds Windows (MSI + NSIS), Linux and macOS
+artifacts on real CI runners.
+
 > **Note:** a binary built without Tauri's `custom-protocol` feature (e.g. a plain `cargo build`)
 > expects the Vite dev server on `localhost:1420` and shows *"Could not connect to localhost"*
 > when it isn't running. `pnpm tauri build` enables the feature automatically; for a quick

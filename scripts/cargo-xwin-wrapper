@@ -1,0 +1,10 @@
+#!/bin/sh
+# Routes `cargo build` through cargo-xwin so the Tauri CLI can
+# cross-compile Windows (x86_64-pc-windows-msvc) bundles from Linux.
+# Prereqs: rustup target add x86_64-pc-windows-msvc
+#          cargo install --locked cargo-xwin
+#          wine (only needed for the NSIS installer step)
+if [ "$1" = "build" ]; then
+  exec cargo xwin "$@"
+fi
+exec cargo "$@"
