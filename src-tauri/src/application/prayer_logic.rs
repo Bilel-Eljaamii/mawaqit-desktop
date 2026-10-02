@@ -78,6 +78,18 @@ pub fn is_due(now: NaiveTime, hhmm: &str) -> bool {
     }
 }
 
+/// Sanity cap for `notify_before_min`, which arrives from the
+/// attacker-writable config file. Values above this behave as this cap.
+pub const MAX_NOTIFY_BEFORE_MIN: u16 = 120;
+
+/// The time `minutes` before `hhmm`, as "HH:MM"; wraps across midnight
+/// (alerts compare times only, so a 00:05 prayer can pre-alert at 23:35).
+/// Unparsable input yields `None` — hostile strings stay inert.
+pub fn minutes_before(hhmm: &str, minutes: u16) -> Option<String> {
+    let t = NaiveTime::parse_from_str(hhmm, "%H:%M").ok()?;
+    Some((t - chrono::Duration::minutes(i64::from(minutes))).format("%H:%M").to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,5 +204,36 @@ mod tests {
         // Last second of the day.
         let last = NaiveTime::from_hms_opt(23, 59, 59).unwrap();
         assert!(is_due(last, "23:59"));
+    }
+
+    // ---- pre-notification (notify-before) helpers ----
+
+    #[test]
+    fn minutes_before_lands_n_minutes_earlier() {
+        assert_eq!(minutes_before("06:30", 5).as_deref(), Some("06:25"));
+        assert_eq!(minutes_before("06:30", 1).as_deref(), Some("06:29"));
+        assert_eq!(minutes_before("06:30", 0).as_deref(), Some("06:30"));
+    }
+
+    #[test]
+    fn minutes_before_wraps_across_midnight() {
+        // A Fajr at 00:05 with a 30-minute heads-up is due at 23:35.
+        assert_eq!(minutes_before("00:05", 30).as_deref(), Some("23:35"));
+        assert_eq!(minutes_before("00:00", 1).as_deref(), Some("23:59"));
+    }
+
+    #[test]
+    fn minutes_before_rejects_hostile_times() {
+        for t in ["bogus", "", "25:70", "+30", "13:00:00", "١٣:٠٠"] {
+            assert!(minutes_before(t, 5).is_none(), "{t:?} must stay inert");
+        }
+    }
+
+    #[test]
+    fn notify_before_cap_is_sane() {
+        // The config is attacker-writable; a u16::MAX must behave as the cap,
+        // never as a 45-day countdown.
+        assert!(MAX_NOTIFY_BEFORE_MIN <= 24 * 60);
+        assert!(minutes_before("06:30", MAX_NOTIFY_BEFORE_MIN).is_some());
     }
 }

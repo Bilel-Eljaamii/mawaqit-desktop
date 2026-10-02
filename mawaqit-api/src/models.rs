@@ -51,7 +51,7 @@ impl Mosque {
 
 /// The parts of the page's `confData` object the client exposes.
 /// Anything else stays accessible through [`ConfData::raw`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConfData {
     /// Today's adhan times, [Fajr, Shurouq, Dhuhr, Asr, Maghrib, Isha].
     #[serde(default)]

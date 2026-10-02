@@ -3,11 +3,14 @@ pub mod domain;
 pub mod infrastructure;
 pub mod presentation;
 
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, path::PathBuf, time::Duration};
 
-use application::prayer_logic::{adhan_entries, iqama_entries, is_due, next_prayer};
+use application::prayer_logic::{
+    adhan_entries, iqama_entries, is_due, minutes_before, next_prayer, MAX_NOTIFY_BEFORE_MIN,
+};
 use chrono::Local;
-use domain::models::{AppConfig, TodayPayload};
+use domain::models::{AppConfig, AthanMode, TodayPayload};
+use infrastructure::audio::AthanSource;
 use mawaqit_api::MawaqitClient;
 use presentation::tray::{set_tray_status, setup_tray, update_tray, RefreshFlag};
 use tauri::{Emitter, Manager};
@@ -16,7 +19,10 @@ use tauri_plugin_notification::NotificationExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let client = MawaqitClient::new();
+    // The disk snapshot makes prayer times (and the alarms) survive a dead
+    // network: fetched pages are stored, failures fall back to the store.
+    let client = MawaqitClient::new()
+        .with_disk_cache(infrastructure::config::cache_dir());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
@@ -24,6 +30,7 @@ pub fn run() {
             Some(vec!["--minimized"]),
         ))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(client.clone())
         .manage(RefreshFlag::new())
         .invoke_handler(tauri::generate_handler![
@@ -35,6 +42,7 @@ pub fn run() {
             presentation::commands::get_month_iqama,
             presentation::commands::stop_athan,
             presentation::commands::athan_playing,
+            presentation::commands::preview_athan,
         ])
         .setup(|app| {
             // Make the mawaqit icon show up in the application menu, dock
@@ -110,10 +118,10 @@ async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
         if !config.has_mosque() {
             set_tray_status(&handle, "Mawaqit: right-click to choose your mosque");
         } else if today.is_none() {
-            match client.conf_data(&config.mosque_slug).await {
-                Ok(conf) => {
+            match client.conf_data_dated(&config.mosque_slug).await {
+                Ok((conf, as_of)) => {
                     match mawaqit_api::times_for_date(&conf, Local::now().date_naive()) {
-                        Ok(times) => today = Some(TodayPayload::from_conf(&conf, times)),
+                        Ok(times) => today = Some(TodayPayload::from_conf(&conf, times, as_of)),
                         Err(e) => set_tray_status(&handle, &format!("Mawaqit: {e}")),
                     }
                 }
@@ -152,16 +160,46 @@ fn tick(
         }
     }
     if let Some(next) = next_prayer(&upcoming) {
-        update_tray(handle, next.minutes_remaining, &next.name);
+        update_tray(handle, next.minutes_remaining, &next.name, payload.as_of.is_some());
     }
 
-    // Adhan alerts (notification + athan).
-    for (name, time) in adhan_entries(&payload.times.adhan) {
+    // Per-prayer alerts: each prayer's heads-up and adhan behavior are
+    // configured independently.
+    for (index, (name, time)) in adhan_entries(&payload.times.adhan).into_iter().enumerate() {
+        let alerts = config.alerts.prayer(index);
+
+        // Pre-adhan notification, exactly once per prayer and day. Config
+        // minutes are attacker-writable: cap before use, and treat 0 as off
+        // (it would coincide with the adhan itself).
+        if let Some(before) = alerts
+            .notify_before_min
+            .map(|n| n.min(MAX_NOTIFY_BEFORE_MIN))
+            .filter(|n| *n > 0)
+        {
+            if let Some(target) = minutes_before(&time, before) {
+                if is_due(now, &target) && alerted.insert(format!("{date}|pre|{name}")) {
+                    notify(handle, "Mawaqit", &minutes_from_now(&name, before));
+                }
+            }
+        }
+
+        // At the adhan time.
         if is_due(now, &time) && alerted.insert(format!("{date}|adhan|{name}")) {
-            notify(handle, "Mawaqit", &format!("It is time for the {name} adhan"));
-            if config.sound_enabled && infrastructure::audio::play_athan() {
-                // The UI shows its stop button while the athan sounds.
-                let _ = handle.emit("athan-started", ());
+            let at_time = format!("It is time for the {name} adhan");
+            match alerts.mode {
+                AthanMode::Silent => notify_silent(handle, "Mawaqit", &at_time),
+                AthanMode::Default => notify(handle, "Mawaqit", &at_time),
+                AthanMode::Adhan => {
+                    notify(handle, "Mawaqit", &at_time);
+                    let source = match &alerts.sound {
+                        Some(path) => AthanSource::File(PathBuf::from(path)),
+                        None => AthanSource::Builtin,
+                    };
+                    if infrastructure::audio::play_athan(source, alerts.volume) {
+                        // The UI shows its stop button while the athan sounds.
+                        let _ = handle.emit("athan-started", ());
+                    }
+                }
             }
         }
     }
@@ -176,6 +214,26 @@ fn tick(
             }
         }
     }
+
+    // Pre-shurouq notification (notification only — sunrise has no adhan).
+    if let Some(before) = config
+        .alerts
+        .shuruq_notify_before_min
+        .map(|n| n.min(MAX_NOTIFY_BEFORE_MIN))
+        .filter(|n| *n > 0)
+    {
+        if let Some(target) = minutes_before(&payload.times.adhan.shurouq, before) {
+            if is_due(now, &target) && alerted.insert(format!("{date}|pre|Shurouq")) {
+                notify(handle, "Mawaqit", &minutes_from_now("Shurouq", before));
+            }
+        }
+    }
+}
+
+/// "Fajr adhan in 5 minutes" / "…in 1 minute" — singular kept grammatical.
+fn minutes_from_now(event: &str, n: u16) -> String {
+    let unit = if n == 1 { "minute" } else { "minutes" };
+    format!("{event} in {n} {unit}")
 }
 
 fn notify(handle: &tauri::AppHandle, title: &str, body: &str) {
@@ -202,6 +260,27 @@ fn notify(handle: &tauri::AppHandle, title: &str, body: &str) {
                 });
             }
         });
+        let _ = handle;
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    let _ = handle.notification().builder().title(title).body(body).show();
+}
+
+/// A "Silent" alert: popup notification without audio. A sound-suppression
+/// hint is sent where the platform supports one (freedesktop); elsewhere a
+/// Silent alert looks like a Default one — there is no reachable mute switch.
+fn notify_silent(handle: &tauri::AppHandle, title: &str, body: &str) {
+    #[cfg(target_os = "linux")]
+    {
+        use notify_rust::{Hint, Notification};
+        let _ = Notification::new()
+            .summary(title)
+            .body(body)
+            .icon(infrastructure::desktop::APP_ICON_NAME)
+            .hint(Hint::SuppressSound(true))
+            .timeout(notify_rust::Timeout::Milliseconds(60_000))
+            .show();
         let _ = handle;
     }
 

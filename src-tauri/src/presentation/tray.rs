@@ -261,15 +261,21 @@ pub fn generate_tray_icon(minutes: i64) -> Image<'static> {
     Image::new_owned(img.into_raw(), width, height)
 }
 
-/// Update the countdown icon, tooltip and the tray menu's info line.
-pub fn update_tray(app: &AppHandle, minutes: i64, event_label: &str) {
+/// Update the countdown icon, tooltip and the tray menu's info line. When
+/// `offline` is set the times come from the disk snapshot, and the tray
+/// says so.
+pub fn update_tray(app: &AppHandle, minutes: i64, event_label: &str, offline: bool) {
     if let Some(state) = app.try_state::<TrayState>() {
+        let suffix = if offline { " (offline)" } else { "" };
         let _ = state.tray.set_icon(Some(generate_tray_icon(minutes)));
-        let _ = state
-            .tray
-            .set_tooltip(Some(&format!("Next: {} in {} min", event_label, minutes)));
-        let _ =
-            state.next_item.set_text(format!("Next: {} in {} min", event_label, minutes));
+        let _ = state.tray.set_tooltip(Some(&format!(
+            "Next: {} in {} min{}",
+            event_label, minutes, suffix
+        )));
+        let _ = state.next_item.set_text(format!(
+            "Next: {} in {} min{}",
+            event_label, minutes, suffix
+        ));
     }
 }
 

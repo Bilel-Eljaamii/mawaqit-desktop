@@ -2,7 +2,7 @@
   "name": "mawaqit-desktop",
   "description": "Mawaqit prayer-times desktop app (Tauri 2)",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "packageManager": "pnpm@10.17.0",
   "scripts": {
@@ -37,6 +37,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.12.0",
     "@tauri-apps/plugin-autostart": "^2.5.1",
+    "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-notification": "^2.4.0",
     "@tauri-apps/plugin-opener": "^2.5.5"
   },

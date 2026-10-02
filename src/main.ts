@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { enable, disable } from "@tauri-apps/plugin-autostart";
+import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   formatCountdown,
   mosqueDisplayName,
@@ -10,6 +11,16 @@ import {
   sanitizeCssUrl,
 } from "./lib/display";
 import type { DailyIqamaTimes, DailyPrayerTimes, Mosque } from "./lib/display";
+import {
+  PRAYER_ALERT_KEYS,
+  applyToAll,
+  clampVolume,
+  defaultAlerts,
+  normalizeAlerts,
+  notifyBeforeLabel,
+  stepNotifyBefore,
+} from "./lib/notifications";
+import type { AlertsConfig, AthanMode, PrayerKey } from "./lib/notifications";
 
 // ---- Types mirroring the Rust serde structs ----
 
@@ -19,6 +30,7 @@ interface AppConfig {
   sound_enabled: boolean;
   iqama_alerts: boolean;
   autostart: boolean;
+  alerts: AlertsConfig;
 }
 
 interface TodayTimes {
@@ -34,6 +46,8 @@ interface TodayPayload {
   image: string | null;
   imsak_mode: boolean;
   times: TodayTimes;
+  /** Fetch date (ISO) of the offline snapshot when served from disk. */
+  as_of: string | null;
 }
 
 interface MonthTimes {
@@ -84,7 +98,13 @@ const DEFAULT_CONFIG: AppConfig = {
   sound_enabled: true,
   iqama_alerts: false,
   autostart: true,
+  alerts: defaultAlerts(),
 };
+
+// ---- Prayer notifications panel state ----
+
+let alertsDraft: AlertsConfig = defaultAlerts();
+let notifyTab: PrayerKey = "fajr";
 
 function toast(message: string, isError = true): void {
   const el = $("toast");
@@ -169,6 +189,18 @@ function renderToday(): void {
   // Shurouq + Jumu'a extras.
   $("ct-shurouq-val").textContent = payload.times.adhan.shurouq;
   $("ct-shurouq").hidden = false;
+
+  // Offline badge: only set when the backend served the disk snapshot.
+  const offlineBadge = $("offline-badge");
+  offlineBadge.hidden = !payload.as_of;
+  if (payload.as_of) {
+    const parsed = new Date(`${payload.as_of}T00:00`);
+    const shown = Number.isNaN(parsed.getTime())
+      ? payload.as_of
+      : parsed.toLocaleDateString();
+    offlineBadge.textContent = `Offline — times from ${shown}`;
+  }
+
   if (payload.jumua) {
     $("ct-jumua-val").textContent = payload.jumua;
     $("ct-jumua2-val").textContent = payload.jumua2 ? ` / ${payload.jumua2}` : "";
@@ -247,6 +279,9 @@ function tick(): void {
 
 async function loadConfig(): Promise<void> {
   config = await invoke<AppConfig>("get_config");
+  // The backend normalizes its config, but the file is attacker-writable:
+  // re-validate at the UI boundary so the panel never sees garbage.
+  config.alerts = normalizeAlerts(config.alerts, config.sound_enabled);
 }
 
 async function loadToday(): Promise<void> {
@@ -318,7 +353,6 @@ async function pickOnboardingMosque(mosque: Mosque): Promise<void> {
 
 function openSettings(): void {
   if (!config) return;
-  ($("set-sound") as HTMLInputElement).checked = config.sound_enabled;
   ($("set-iqama") as HTMLInputElement).checked = config.iqama_alerts;
   ($("set-autostart") as HTMLInputElement).checked = config.autostart;
   $("set-current-mosque").textContent =
@@ -343,18 +377,25 @@ async function saveSettings(): Promise<void> {
       cfg.mosque_slug = selectedMosque.slug!;
       cfg.mosque_name = selectedMosque.label ?? selectedMosque.name ?? null;
     }
-    cfg.sound_enabled = ($("set-sound") as HTMLInputElement).checked;
     cfg.iqama_alerts = ($("set-iqama") as HTMLInputElement).checked;
     cfg.autostart = ($("set-autostart") as HTMLInputElement).checked;
 
     await invoke("update_config", { config: cfg });
     config = cfg;
 
-    try {
-      if (cfg.autostart) await enable();
-      else await disable();
-    } catch (e) {
-      console.warn("Autostart plugin error:", e);
+    // The autostart plugin rewrites its entry with the running binary's path
+    // on every call (even a doomed AppImage mount path) — invoke it only when
+    // the setting actually changed, and never from a dev session: a dev
+    // binary in the entry means a broken login.
+    if (!import.meta.env.DEV) {
+      try {
+        if (cfg.autostart !== (await isEnabled())) {
+          if (cfg.autostart) await enable();
+          else await disable();
+        }
+      } catch (e) {
+        console.warn("Autostart plugin error:", e);
+      }
     }
 
     closeSettings();
@@ -366,6 +407,110 @@ async function saveSettings(): Promise<void> {
   } catch (e) {
     status.textContent = `Save failed: ${e}`;
   }
+}
+
+// ---- Prayer notifications panel ----
+
+/// Write-through persistence: every panel interaction is applied to the
+/// config immediately (like the mobile app), so there is no Save button to
+/// forget and no Cancel state to keep in sync.
+async function persistAlerts(): Promise<void> {
+  if (!config) return;
+  try {
+    const cfg = await invoke<AppConfig>("get_config");
+    cfg.alerts = alertsDraft;
+    await invoke("update_config", { config: cfg });
+    config = cfg;
+  } catch (e) {
+    toast(`Failed to save notification settings: ${e}`);
+  }
+}
+
+function prayerAlertsLabel(key: PrayerKey): string {
+  return PRAYERS.find((p) => p.key === key)?.label ?? key;
+}
+
+function buildNotifyTabs(): void {
+  const tabs = $("notify-tabs");
+  tabs.innerHTML = "";
+  for (const key of PRAYER_ALERT_KEYS) {
+    const tab = document.createElement("button");
+    tab.className = "notify-tab";
+    tab.type = "button";
+    tab.dataset.prayer = key;
+    tab.textContent = prayerAlertsLabel(key);
+    tab.addEventListener("click", () => {
+      notifyTab = key;
+      syncNotifyPanel();
+    });
+    tabs.appendChild(tab);
+  }
+}
+
+/// Reflect the draft state of the current prayer into every control. Any
+/// config-derived string lands via textContent (the sound path is
+/// attacker-writable).
+function syncNotifyPanel(): void {
+  document.querySelectorAll("#notify-tabs .notify-tab").forEach((tab) => {
+    tab.classList.toggle("active", (tab as HTMLElement).dataset.prayer === notifyTab);
+  });
+
+  const alerts = alertsDraft[notifyTab];
+  document.querySelectorAll("#mode-cards .mode-card").forEach((card) => {
+    card.classList.toggle("active", (card as HTMLElement).dataset.mode === alerts.mode);
+  });
+
+  $("adhan-options").hidden = alerts.mode !== "adhan";
+  const hasCustom = !!alerts.sound;
+  ($("notify-sound-select") as HTMLSelectElement).value = hasCustom ? "custom" : "";
+  const path = $("notify-sound-path");
+  path.hidden = !hasCustom;
+  path.textContent = alerts.sound ?? "";
+
+  const volumeOn = alerts.volume !== null;
+  ($("notify-volume-toggle") as HTMLInputElement).checked = volumeOn;
+  $("notify-volume-row").hidden = !volumeOn;
+  const volume = clampVolume(alerts.volume ?? 100);
+  ($("notify-volume") as HTMLInputElement).value = String(volume);
+  $("notify-volume-value").textContent = `${volume}%`;
+
+  $("notify-before-value").textContent = notifyBeforeLabel(alerts.notify_before_min);
+
+  $("shuruq-value").textContent = notifyBeforeLabel(alertsDraft.shuruq_notify_before_min);
+}
+
+function openNotify(): void {
+  if (!config) return;
+  alertsDraft = normalizeAlerts(config.alerts, config.sound_enabled);
+  notifyTab = "fajr";
+  syncNotifyPanel();
+  $("overlay").hidden = false;
+  $("notify-dialog").hidden = false;
+}
+
+function closeNotify(): void {
+  $("overlay").hidden = true;
+  $("notify-dialog").hidden = true;
+}
+
+async function pickSoundFile(): Promise<string | null> {
+  try {
+    const picked = await open({
+      multiple: false,
+      directory: false,
+      filters: [{ name: "Audio", extensions: ["mp3", "wav"] }],
+    });
+    return typeof picked === "string" ? picked : null;
+  } catch (e) {
+    toast(`File picker failed: ${e}`);
+    return null;
+  }
+}
+
+async function setMode(mode: AthanMode): Promise<void> {
+  alertsDraft[notifyTab].mode = mode;
+  await persistAlerts();
+  syncNotifyPanel();
 }
 
 // ---- Athan stop ----
@@ -432,7 +577,112 @@ document.addEventListener("DOMContentLoaded", () => {
   $("settings-btn").addEventListener("click", openSettings);
   $("cancel-btn").addEventListener("click", closeSettings);
   $("save-btn").addEventListener("click", saveSettings);
-  $("overlay").addEventListener("click", closeSettings);
+  $("overlay").addEventListener("click", () => {
+    closeSettings();
+    closeNotify();
+  });
+
+  // ---- Prayer notifications panel ----
+  buildNotifyTabs();
+  $("notify-btn").addEventListener("click", openNotify);
+  $("notify-close").addEventListener("click", closeNotify);
+  document.querySelectorAll<HTMLElement>("#mode-cards .mode-card").forEach((card) => {
+    card.addEventListener("click", () =>
+      setMode((card.dataset.mode ?? "adhan") as AthanMode),
+    );
+  });
+
+  $("notify-sound-select").addEventListener("change", async () => {
+    const select = $("notify-sound-select") as HTMLSelectElement;
+    if (select.value === "custom") {
+      const picked = await pickSoundFile();
+      if (picked) {
+        alertsDraft[notifyTab].sound = picked;
+        await persistAlerts();
+      } else {
+        // Picker cancelled: fall back to whatever the draft still holds.
+        select.value = alertsDraft[notifyTab].sound ? "custom" : "";
+        return;
+      }
+    } else {
+      alertsDraft[notifyTab].sound = null;
+      await persistAlerts();
+    }
+    syncNotifyPanel();
+  });
+
+  $("notify-preview").addEventListener("click", async () => {
+    const alerts = alertsDraft[notifyTab];
+    try {
+      await invoke("preview_athan", { sound: alerts.sound, volume: alerts.volume });
+      await refreshAthanButton();
+    } catch (e) {
+      toast(`Preview failed: ${e}`);
+    }
+  });
+
+  $("notify-volume-toggle").addEventListener("change", async () => {
+    const on = ($("notify-volume-toggle") as HTMLInputElement).checked;
+    if (on) {
+      alertsDraft[notifyTab].volume = clampVolume(
+        Number(($("notify-volume") as HTMLInputElement).value) || 100,
+      );
+    } else {
+      alertsDraft[notifyTab].volume = null;
+    }
+    await persistAlerts();
+    syncNotifyPanel();
+  });
+  $("notify-volume").addEventListener("input", () => {
+    const v = clampVolume(Number(($("notify-volume") as HTMLInputElement).value));
+    $("notify-volume-value").textContent = `${v}%`;
+  });
+  $("notify-volume").addEventListener("change", async () => {
+    alertsDraft[notifyTab].volume = clampVolume(
+      Number(($("notify-volume") as HTMLInputElement).value),
+    );
+    await persistAlerts();
+  });
+
+  $("notify-before-minus").addEventListener("click", async () => {
+    alertsDraft[notifyTab].notify_before_min = stepNotifyBefore(
+      alertsDraft[notifyTab].notify_before_min,
+      -1,
+    );
+    await persistAlerts();
+    syncNotifyPanel();
+  });
+  $("notify-before-plus").addEventListener("click", async () => {
+    alertsDraft[notifyTab].notify_before_min = stepNotifyBefore(
+      alertsDraft[notifyTab].notify_before_min,
+      1,
+    );
+    await persistAlerts();
+    syncNotifyPanel();
+  });
+
+  $("shuruq-minus").addEventListener("click", async () => {
+    alertsDraft.shuruq_notify_before_min = stepNotifyBefore(
+      alertsDraft.shuruq_notify_before_min,
+      -1,
+    );
+    await persistAlerts();
+    syncNotifyPanel();
+  });
+  $("shuruq-plus").addEventListener("click", async () => {
+    alertsDraft.shuruq_notify_before_min = stepNotifyBefore(
+      alertsDraft.shuruq_notify_before_min,
+      1,
+    );
+    await persistAlerts();
+    syncNotifyPanel();
+  });
+
+  $("notify-apply-all").addEventListener("click", async () => {
+    alertsDraft = applyToAll(alertsDraft, notifyTab);
+    await persistAlerts();
+    syncNotifyPanel();
+  });
 
   $("ob-search-btn").addEventListener("click", () =>
     searchMosques(($("ob-search") as HTMLInputElement).value, $("ob-results"), pickOnboardingMosque),

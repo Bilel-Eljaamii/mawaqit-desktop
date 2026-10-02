@@ -17,6 +17,9 @@
           <button class="tab active" id="tab-today" data-view="today">Today</button>
           <button class="tab" id="tab-month" data-view="month">Month</button>
         </nav>
+        <button id="notify-btn" title="Prayer notifications">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        </button>
         <button id="settings-btn" title="Settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
@@ -54,6 +57,8 @@
             <div class="next-name" id="next-name">—</div>
             <div class="big-countdown" id="next-countdown">--:--</div>
           </div>
+
+          <div class="offline-badge" id="offline-badge" hidden></div>
 
           <div class="custom-times" id="custom-times" hidden>
             <div class="custom-time" id="ct-shurouq" hidden>
@@ -104,10 +109,6 @@
 
       <div class="form-group">
         <label class="checkbox-group">
-          <input type="checkbox" id="set-sound" />
-          <span>Play athan sound at adhan time</span>
-        </label>
-        <label class="checkbox-group">
           <input type="checkbox" id="set-iqama" />
           <span>Notify at iqama time</span>
         </label>
@@ -115,6 +116,7 @@
           <input type="checkbox" id="set-autostart" />
           <span>Run at startup (minimized to tray)</span>
         </label>
+        <p class="form-hint">Per-prayer athan, volume and reminders live in the bell menu.</p>
       </div>
 
       <div id="set-status" class="status-msg"></div>
@@ -122,6 +124,74 @@
         <button id="cancel-btn" class="btn">Cancel</button>
         <button id="save-btn" class="btn btn-primary">Save Settings</button>
       </div>
+    </div>
+
+    <!-- Prayer notifications dialog (per-prayer settings) -->
+    <div id="notify-dialog" hidden>
+      <div class="notify-head">
+        <h2>Prayer Notifications</h2>
+        <button id="notify-close" class="icon-btn" title="Close">&#10005;</button>
+      </div>
+
+      <div class="notify-tabs" id="notify-tabs"></div>
+
+      <div class="mode-cards" id="mode-cards">
+        <button class="mode-card" data-mode="silent" type="button">
+          <span class="mode-icon">&#128263;</span>
+          <span>Silent</span>
+        </button>
+        <button class="mode-card" data-mode="default" type="button">
+          <span class="mode-icon">&#128276;</span>
+          <span>Default</span>
+        </button>
+        <button class="mode-card" data-mode="adhan" type="button">
+          <span class="mode-icon">&#128332;</span>
+          <span>Adhan</span>
+        </button>
+      </div>
+
+      <div id="adhan-options">
+        <div class="row-card">
+          <span class="row-label">Sound</span>
+          <select id="notify-sound-select" class="select">
+            <option value="">Built-in athan</option>
+            <option value="custom">Custom file…</option>
+          </select>
+          <button id="notify-preview" class="btn btn-small" type="button">&#9654; Preview</button>
+        </div>
+        <div id="notify-sound-path" class="sound-path" hidden></div>
+        <div class="row-card">
+          <span class="row-label">Custom volume</span>
+          <span class="row-spacer"></span>
+          <input type="checkbox" id="notify-volume-toggle" class="switch" />
+        </div>
+        <div class="row-card" id="notify-volume-row" hidden>
+          <input type="range" id="notify-volume" min="0" max="100" step="1" />
+          <span id="notify-volume-value" class="mono">100%</span>
+        </div>
+      </div>
+
+      <div class="notify-section-label">Pre-Prayer notification</div>
+      <div class="row-card">
+        <span class="row-label">Notify before</span>
+        <span class="row-spacer"></span>
+        <button id="notify-before-minus" class="stepper-btn" type="button">&minus;</button>
+        <span id="notify-before-value" class="stepper-value">None</span>
+        <button id="notify-before-plus" class="stepper-btn" type="button">+</button>
+      </div>
+
+      <div class="notify-section-label">Pre-Shuruq notification</div>
+      <div class="row-card">
+        <span class="row-label">Notify before</span>
+        <span class="row-spacer"></span>
+        <button id="shuruq-minus" class="stepper-btn" type="button">&minus;</button>
+        <span id="shuruq-value" class="stepper-value">None</span>
+        <button id="shuruq-plus" class="stepper-btn" type="button">+</button>
+      </div>
+
+      <button id="notify-apply-all" class="btn btn-primary apply-all" type="button">
+        &#128332; Set this for every prayer
+      </button>
     </div>
 
     <button id="stop-athan-btn" class="stop-athan" hidden>&#9209; Stop athan</button>

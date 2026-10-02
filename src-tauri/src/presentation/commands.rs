@@ -1,9 +1,14 @@
+use std::path::PathBuf;
+
 use mawaqit_api::{MawaqitClient, MonthIqamaTimes, MonthTimes, Mosque};
 use tauri::State;
 
 use crate::{
     domain::models::{AppConfig, TodayPayload},
-    infrastructure::{audio, config::{load_config, save_config}},
+    infrastructure::{
+        audio,
+        config::{load_config, save_config},
+    },
 };
 
 #[tauri::command]
@@ -13,6 +18,10 @@ pub fn get_config() -> AppConfig {
 
 #[tauri::command]
 pub fn update_config(config: AppConfig, client: State<MawaqitClient>) {
+    // The legacy global switch stays in the file for downgrades; whatever the
+    // caller sent, it must agree with the per-prayer settings that now rule.
+    let mut config = config;
+    config.sound_enabled = config.alerts.any_adhan();
     let previous = load_config();
     if previous.mosque_slug != config.mosque_slug {
         client.invalidate(Some(&previous.mosque_slug));
@@ -37,10 +46,13 @@ pub async fn get_today(
     if !config.has_mosque() {
         return Ok(None);
     }
-    let conf = client.conf_data(&config.mosque_slug).await.map_err(|e| e.to_string())?;
+    let (conf, as_of) = client
+        .conf_data_dated(&config.mosque_slug)
+        .await
+        .map_err(|e| e.to_string())?;
     let times = mawaqit_api::times_for_date(&conf, chrono::Local::now().date_naive())
         .map_err(|e| e.to_string())?;
-    Ok(Some(TodayPayload::from_conf(&conf, times)))
+    Ok(Some(TodayPayload::from_conf(&conf, times, as_of)))
 }
 
 #[tauri::command]
@@ -77,4 +89,16 @@ pub fn stop_athan() {
 #[tauri::command]
 pub fn athan_playing() -> bool {
     audio::is_playing()
+}
+
+/// Play the athan on demand (notification panel's preview button). `sound`
+/// is a custom audio file path, or empty/null for the built-in athan;
+/// `volume` is 0–100 percent.
+#[tauri::command]
+pub fn preview_athan(sound: Option<String>, volume: Option<u8>) -> bool {
+    let source = match sound.as_deref() {
+        Some(path) if !path.trim().is_empty() => audio::AthanSource::File(PathBuf::from(path)),
+        _ => audio::AthanSource::Builtin,
+    };
+    audio::play_athan(source, volume)
 }

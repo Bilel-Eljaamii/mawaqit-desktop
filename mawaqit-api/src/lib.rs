@@ -29,6 +29,7 @@
 mod cache;
 mod calendar;
 mod client;
+pub mod disk;
 mod error;
 mod models;
 mod scraper;

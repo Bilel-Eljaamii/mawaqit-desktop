@@ -1,6 +1,6 @@
 [package]
 name = "mawaqit_desktop"
-version = "0.1.0"
+version = "0.3.0"
 description = "Mawaqit Desktop"
 authors = ["Bilel Eljaamii"]
 edition = "2021"
@@ -30,6 +30,8 @@ tauri-plugin-autostart = "2.5.1"
 image = "0.25.10"
 dirs = "7.0.0"
 tauri-plugin-notification = "2.4.0"
+# Native file picker for the per-prayer custom athan sound.
+tauri-plugin-dialog = "2"
 rodio = { version = "0.22.2", features = ["symphonia-mp3"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

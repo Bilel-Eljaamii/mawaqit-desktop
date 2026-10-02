@@ -11,6 +11,10 @@ adhan starts, plays the athan, and can remind you at iqama time too.
 
 - **Keyless** — uses mawaqit.net's public mosque-search endpoint and the data embedded in each
   mosque's public page. No login, no API key, nothing personal stored or sent.
+- **Works offline** — every successful fetch stores a snapshot of the mosque's whole year
+  (adhan + iqama calendars) in the app config directory; when the network is down the app
+  serves the snapshot, keeps the alarms and shows an "Offline — times from …" badge (the tray
+  says so too). Without a snapshot the app behaves as before and retries.
 - **Tray countdown** — the tray icon carries a small countdown badge (color-coded as the prayer
   approaches) and a tooltip with the exact time; the badge gets out of the way when the next
   prayer is more than an hour and a half away.

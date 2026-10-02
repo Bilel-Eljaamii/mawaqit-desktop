@@ -9,6 +9,15 @@ pub fn get_config_path() -> PathBuf {
         .join("mawaqit-config.json")
 }
 
+/// Offline prayer-time snapshot directory (one file per mosque slug, see
+/// `mawaqit_api::disk`).
+pub fn cache_dir() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("mawaqit-desktop")
+        .join("times-cache")
+}
+
 pub fn load_config() -> AppConfig {
     load_config_from(&get_config_path())
 }
@@ -16,12 +25,54 @@ pub fn load_config() -> AppConfig {
 /// `load_config` at an arbitrary path — the seam the hostile config-file
 /// tests use (they must never touch the real user config).
 pub fn load_config_from(path: &std::path::Path) -> AppConfig {
-    if let Ok(content) = fs::read_to_string(path) {
-        if let Ok(config) = serde_json::from_str(&content) {
-            return config;
+    let Ok(content) = fs::read_to_string(path) else {
+        return AppConfig::default();
+    };
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return AppConfig::default();
+    };
+    // Upgrade migration: prayers the (possibly absent) alerts block does not
+    // mention inherit the legacy global sound switch, so a config written
+    // before per-prayer settings existed — or a partially-written one —
+    // changes nothing observable for the user.
+    let sound_switch = legacy_sound_switch(&value);
+    seed_missing_prayer_alerts(&mut value, sound_switch);
+    let Ok(config) = serde_json::from_value::<AppConfig>(value) else {
+        return AppConfig::default();
+    };
+    config
+}
+
+/// The legacy `sound_enabled` field, read raw (defaulted true) before the
+/// typed parse, so prayer seeding can use it.
+fn legacy_sound_switch(value: &serde_json::Value) -> bool {
+    value.get("sound_enabled").and_then(|v| v.as_bool()).unwrap_or(true)
+}
+
+/// Fill in the five per-prayer entries that a valid-or-absent alerts block
+/// does not mention. A wrong-typed alerts block is left alone: the typed
+/// parse then fails and the whole config falls back to defaults (the pinned
+/// wrong-type rule — the mosque goes, not the sanity).
+fn seed_missing_prayer_alerts(value: &mut serde_json::Value, sound_enabled: bool) {
+    let mode = if sound_enabled { "adhan" } else { "silent" };
+    let seeded = || serde_json::json!({ "mode": mode });
+    match value.get_mut("alerts") {
+        None => {
+            if let Some(root) = value.as_object_mut() {
+                let mut block = serde_json::Map::new();
+                for name in ["fajr", "dhuhr", "asr", "maghrib", "isha"] {
+                    block.insert(name.to_string(), seeded());
+                }
+                root.insert("alerts".to_string(), serde_json::Value::Object(block));
+            }
         }
+        Some(serde_json::Value::Object(block)) => {
+            for name in ["fajr", "dhuhr", "asr", "maghrib", "isha"] {
+                block.entry(name.to_string()).or_insert_with(seeded);
+            }
+        }
+        Some(_) => {}
     }
-    AppConfig::default()
 }
 
 pub fn save_config(config: &AppConfig) {
@@ -179,15 +230,11 @@ mod tests {
         assert_eq!(cfg.mosque_slug, "a\u{0000}b\u{202E}c");
     }
 
-    /// FINDING F9 — `sound_enabled` is the only AppConfig field without a
-    /// `#[serde(default)]`, so a config file that carries the user's mosque
-    /// but is missing (or corrupted in) that single bool fails to parse
-    /// ENTIRELY and silently resets the app to "no mosque". Any partial
-    /// write/truncation/tamper that drops one field wipes the whole
-    /// configuration. All other fields already default; make sound_enabled
-    /// `#[serde(default = "default_true")]` too, then un-ignore.
+    /// FIXED (was FINDING F9) — `sound_enabled` now carries a
+    /// `#[serde(default)]` like every other field, so a config that carries
+    /// the user's mosque but is missing (or corrupted in) that single bool
+    /// no longer resets the app to "no mosque". Regression guard.
     #[test]
-    #[ignore = "RED TEAM FINDING F9: one missing field discards the whole config"]
     fn finding_f9_partial_config_preserves_the_mosque() {
         let path = write_temp(
             "partial",
@@ -199,5 +246,142 @@ mod tests {
             cfg.mosque_slug, "grande-mosquee-de-paris",
             "a missing optional bool must not wipe the mosque selection"
         );
+    }
+
+    #[test]
+    fn legacy_config_without_alerts_seeds_from_the_sound_switch() {
+        // sound_enabled=true (defaulted) -> every prayer plays the adhan.
+        let path = write_temp(
+            "legacy-on",
+            r#"{"mosque_slug":"grande-mosquee-de-paris"}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        for name in ["fajr", "dhuhr", "asr", "maghrib", "isha"] {
+            assert_eq!(
+                cfg.alerts.prayer_alert(name).unwrap().mode,
+                crate::domain::models::AthanMode::Adhan,
+                "{name} must inherit the legacy sound_enabled=true"
+            );
+        }
+
+        // sound_enabled=false -> every prayer is muted.
+        let path = write_temp(
+            "legacy-off",
+            r#"{"mosque_slug":"grande-mosquee-de-paris","sound_enabled":false}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        for name in ["fajr", "dhuhr", "asr", "maghrib", "isha"] {
+            assert_eq!(
+                cfg.alerts.prayer_alert(name).unwrap().mode,
+                crate::domain::models::AthanMode::Silent,
+                "{name} must inherit the legacy sound_enabled=false"
+            );
+        }
+    }
+
+    #[test]
+    fn config_with_alerts_key_keeps_its_explicit_settings() {
+        let path = write_temp(
+            "explicit",
+            r#"{"mosque_slug":"paris","sound_enabled":false,
+                "alerts":{"isha":{"mode":"default"}}}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        // The explicit isha setting wins even though sound_enabled is false;
+        // the other prayers still seed from the legacy switch.
+        assert_eq!(
+            cfg.alerts.isha.mode,
+            crate::domain::models::AthanMode::Default
+        );
+        assert_eq!(
+            cfg.alerts.fajr.mode,
+            crate::domain::models::AthanMode::Silent
+        );
+    }
+
+    #[test]
+    fn wrong_typed_alerts_block_falls_back_to_defaults() {
+        let cases = [
+            r#"{"mosque_slug":"x","alerts":42}"#,                       // int block
+            r#"{"mosque_slug":"x","alerts":"silent"}"#,                 // string block
+            r#"{"mosque_slug":"x","alerts":{"fajr":{"mode":"LOUD"}}}"#, // bad enum string
+            r#"{"mosque_slug":"x","alerts":{"fajr":{"mode":3}}}"#,      // int mode
+            r#"{"mosque_slug":"x","alerts":{"asr":{"volume":9999}}}"#,  // out-of-u8 volume
+            r#"{"mosque_slug":"x","alerts":{"isha":{"notify_before_min":"5"}}}"#, // string minutes
+        ];
+        for content in cases {
+            let path = write_temp("bad-alerts", content);
+            let cfg = load_config_from(&path);
+            cleanup(&path);
+            assert_eq!(
+                cfg,
+                AppConfig::default(),
+                "content {content:?} must yield defaults"
+            );
+        }
+    }
+
+    #[test]
+    fn removed_alerts_fields_are_ignored_not_fatal() {
+        // `live_timer` existed in the brief v0.2.0 era and was removed; old
+        // config files still carry it. Unknown fields must stay ignored
+        // (forward compat) — the mosque survives and the field is dropped.
+        let path = write_temp(
+            "legacy-live-timer",
+            r#"{"mosque_slug":"paris","alerts":{"fajr":{
+                "mode":"default","notify_before_min":5,"live_timer":true
+            }}}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        assert_eq!(cfg.mosque_slug, "paris");
+        assert_eq!(cfg.alerts.fajr.notify_before_min, Some(5));
+        let expected = crate::domain::models::PrayerAlerts {
+            mode: crate::domain::models::AthanMode::Default,
+            notify_before_min: Some(5),
+            ..Default::default()
+        };
+        assert_eq!(cfg.alerts.fajr, expected);
+    }
+
+    #[test]
+    fn partial_alerts_block_defaults_the_rest() {
+        // A valid but partial alerts block must not wipe anything: missing
+        // prayers get their serde defaults, the mosque stays.
+        let path = write_temp(
+            "partial-alerts",
+            r#"{"mosque_slug":"paris","alerts":{"dhuhr":{"volume":40}}}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        assert_eq!(cfg.mosque_slug, "paris");
+        assert_eq!(cfg.alerts.dhuhr.volume, Some(40));
+        assert_eq!(
+            cfg.alerts.fajr,
+            crate::domain::models::PrayerAlerts::default()
+        );
+    }
+
+    #[test]
+    fn extreme_but_in_range_alerts_values_load_losslessly() {
+        // u16::MAX minutes and volume 255 parse fine — clamping to sane
+        // behavior happens at use time, the config layer must stay lossless
+        // (the mosque must survive a weird-but-typed value).
+        let path = write_temp(
+            "extreme",
+            r#"{"mosque_slug":"paris","alerts":{
+                "fajr":{"notify_before_min":65535,"volume":255},
+                "asr":{"notify_before_min":0}
+            }}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        assert_eq!(cfg.alerts.fajr.notify_before_min, Some(65535));
+        assert_eq!(cfg.alerts.fajr.volume, Some(255));
+        assert_eq!(cfg.alerts.asr.notify_before_min, Some(0));
+        assert_eq!(cfg.mosque_slug, "paris");
     }
 }

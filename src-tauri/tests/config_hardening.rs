@@ -88,6 +88,9 @@ fn capabilities_stay_minimal() {
         "autostart:allow-enable",
         "autostart:allow-disable",
         "autostart:allow-is-enabled",
+        // Native file picker for the per-prayer custom athan sound: read-only
+        // open dialog, returns the chosen path. No write access granted.
+        "dialog:allow-open",
     ] {
         assert!(
             permissions.contains(&allowed),
@@ -95,7 +98,7 @@ fn capabilities_stay_minimal() {
         );
     }
     assert!(
-        permissions.len() <= 5,
+        permissions.len() <= 6,
         "new permissions appeared: {permissions:?} — justify each one against hostile webview content"
     );
 }

@@ -37,6 +37,8 @@ cargo fuzz run parse_page        # in fuzz/, nightly toolchain
 | `src-tauri/src/application/prayer_logic.rs` (`#[cfg(test)]`) | alarms | hostile time strings reaching the adhan/iqama alert engine |
 | `src-tauri/tests/config_hardening.rs` | build config | CSP, `withGlobalTauri`, capability minimality |
 | `tests/frontend/hostile-display.test.ts` | webview rendering | XSS payload zoo through every rendering path; CSS URL sanitizer breakouts; countdown rollover |
+| `tests/frontend/notifications.test.ts` | alerts settings | hostile IPC alerts blocks (wrong types, bad enums, clamped numbers, XSS sound paths); stepper/clamp/apply-to-all contracts |
+| `mawaqit-api/src/disk.rs` (`#[cfg(test)]`) + `tests/disk_cache.rs` | offline snapshots | attacker-writable snapshot files: garbage/truncated/wrong-slug/wrong-version degrade to "no snapshot"; hostile slugs can't escape the cache dir (hashed filenames); served-from-snapshot behavior pinned end-to-end |
 | `fuzz/fuzz_targets/` | parser | libFuzzer campaigns beyond the pinned corpus (pre-existing) |
 
 Test-enabling seams added (no behavior change for production callers):
@@ -61,13 +63,22 @@ Fix the code, un-ignore the test, and it becomes the regression guard.
 | F6 | Low | **Control/bidi characters reach display strings.** `U+202E` and friends flow into the window title, tray tooltip and OS notifications (`Mawaqit: <name>`), enabling visual spoofing of app state. Fix: strip C0/C1 + bidi controls at the `ConfData` boundary. | `hostile_semantics::finding_f6_…` |
 | F7 | — | **CSP was null.** Fixed during this engagement (a real policy now exists in `tauri.conf.json`); the former finding test is now the always-run contract `config_hardening::csp_is_configured`. | — |
 | F8 | Medium | **`withGlobalTauri: true` with no consumer.** The frontend imports bundled `@tauri-apps/api` modules; the global `window.__TAURI__` only serves any script that manages to run in the webview, handing it every IPC command including `update_config`. Fix: set `"withGlobalTauri": false`. | `config_hardening::finding_f8_…` |
-| F9 | Medium | **One missing config field wipes the whole config.** `sound_enabled` is the only `AppConfig` field without `#[serde(default)]`, so a config carrying the mosque but missing that bool fails to parse entirely and silently resets the app to "no mosque" (trivially reachable by a truncated write or tamper). Fix: `#[serde(default = "default_true")]`. | `config::tests::finding_f9_partial_config_…` |
+| F9 | Medium | **One missing config field wipes the whole config.** `sound_enabled` is the only `AppConfig` field without `#[serde(default)]`, so a config carrying the mosque but missing that bool fails to parse entirely and silently resets the app to "no mosque" (trivially reachable by a truncated write or tamper). Fix: `#[serde(default = "default_true")]`. **FIXED in v0.2.0** (the per-prayer alerts block landed with serde defaults on every field, and `sound_enabled` got the same treatment); probe un-ignored and now the regression guard. | `config::tests::finding_f9_partial_config_…` (now always-run) |
 
 Notes (no test): `tauri-plugin-opener` and its `opener:default` capability are
 granted but the frontend never calls it — consider dropping the dependency to
 shrink the IPC surface. Search results are rendered unbounded: a hostile
 response with tens of thousands of entries renders that many `<li>` elements
 (bounded by the 20 MB cap, so this is a sluggishness, not a crash).
+
+Since v0.2.0 the per-prayer alerts config can name a `sound` path on disk;
+a tampered config file can therefore make the app play any local mp3/wav as
+the athan. Bounded by design: the path is opened as audio input only
+(missing file / directory / junk bytes fail the decode cleanly — pinned in
+`infrastructure::audio::tests`), it never reaches the webview except as
+inert `textContent`, and it grants no read beyond "play bytes through the
+audio device". The dialog capability added for the picker is read-only
+(`dialog:allow-open`).
 
 ## Hardened by design (pinned, don't regress)
 
@@ -90,4 +101,7 @@ response with tens of thousands of entries renders that many `<li>` elements
   parses land on the face-value time — hostile strings can never shift an
   adhan alert.
 - Hostile config files (binary junk, wrong types, legacy formats, 4 MB slugs)
-  always load to a sane state without panicking.
+  always load to a sane state without panicking. The offline snapshot files in
+  `times-cache/` are attacker-writable inputs under the same contract: any
+  parse failure degrades to "no snapshot", and the filename is a hash of the
+  slug so a hostile slug can never escape the directory.

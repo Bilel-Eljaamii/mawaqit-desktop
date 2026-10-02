@@ -1,10 +1,11 @@
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
-use chrono::Local;
+use chrono::{Local, NaiveDate};
 
 use crate::{
     cache::TtlCache,
     calendar,
+    disk,
     error::{MawaqitError, Result},
     models::{ConfData, MonthIqamaTimes, MonthTimes, Mosque, TodayTimes},
 };
@@ -35,6 +36,9 @@ const MAX_RESPONSE_BYTES: usize = 20 * 1024 * 1024;
 #[derive(Clone)]
 pub struct MawaqitClient {
     inner: Arc<Inner>,
+    /// Offline snapshot directory (see [`crate::disk`]); shared with clones,
+    /// `None` = feature off.
+    disk: Option<Arc<PathBuf>>,
 }
 
 struct Inner {
@@ -67,7 +71,16 @@ impl MawaqitClient {
                 pages: TtlCache::new(CONF_TTL),
                 searches: TtlCache::new(SEARCH_TTL),
             }),
+            disk: None,
         }
+    }
+
+    /// Serve [`Self::conf_data`] from a disk snapshot when the network is
+    /// unavailable, and refresh the snapshot on every successful fetch —
+    /// the offline layer. See [`crate::disk`].
+    pub fn with_disk_cache(mut self, dir: PathBuf) -> Self {
+        self.disk = Some(Arc::new(dir));
+        self
     }
 
     /// `GET /api/2.0/mosque/search?word=...` — keyword search, no auth.
@@ -100,14 +113,47 @@ impl MawaqitClient {
     }
 
     /// Fetch (or take from cache) the confData of a mosque page. `mosque_id`
-    /// is the page slug, e.g. `grande-mosquee-de-paris`.
+    /// is the page slug, e.g. `grande-mosquee-de-paris`. When the network
+    /// fails and a disk snapshot exists ([`Self::with_disk_cache`]), the
+    /// snapshot is served instead.
     pub async fn conf_data(&self, mosque_id: &str) -> Result<Arc<ConfData>> {
+        self.conf_data_dated(mosque_id).await.map(|(conf, _)| conf)
+    }
+
+    /// Like [`Self::conf_data`], additionally reporting whether the data
+    /// came from the offline disk snapshot: `Some(fetched date)` when it
+    /// did, `None` for a fresh (network or in-memory) fetch.
+    pub async fn conf_data_dated(
+        &self,
+        mosque_id: &str,
+    ) -> Result<(Arc<ConfData>, Option<NaiveDate>)> {
         if let Some(cached) = self.inner.pages.get(mosque_id) {
-            return Ok(cached);
+            return Ok((cached, None));
         }
 
-        let url = page_url(&self.inner.site_base, mosque_id);
-        let response = self.inner.http.get(&url).send().await?;
+        match Self::fetch_conf_data(&self.inner, mosque_id).await {
+            Ok(conf) => {
+                if let Some(dir) = &self.disk {
+                    // Best-effort: a failed snapshot write never breaks an
+                    // online fetch.
+                    disk::store(dir, mosque_id, &conf);
+                }
+                Ok((conf, None))
+            }
+            Err(err) => {
+                if let Some(dir) = &self.disk {
+                    if let Some((fetched_at, conf)) = disk::load(dir, mosque_id) {
+                        return Ok((Arc::new(conf), Some(fetched_at)));
+                    }
+                }
+                Err(err)
+            }
+        }
+    }
+
+    async fn fetch_conf_data(inner: &Inner, mosque_id: &str) -> Result<Arc<ConfData>> {
+        let url = page_url(&inner.site_base, mosque_id);
+        let response = inner.http.get(&url).send().await?;
 
         let status = response.status();
         if status == reqwest::StatusCode::NOT_FOUND {
@@ -118,7 +164,7 @@ impl MawaqitClient {
         }
         let html = read_capped(response).await?;
         let conf = Arc::new(crate::scraper::extract_conf_data(&html, mosque_id)?);
-        self.inner.pages.insert(mosque_id.to_string(), conf.clone());
+        inner.pages.insert(mosque_id.to_string(), conf.clone());
         Ok(conf)
     }
 
