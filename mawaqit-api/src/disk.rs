@@ -102,7 +102,14 @@ mod tests {
 
     fn sample_conf() -> ConfData {
         ConfData {
-            times: vec!["05:00".into(), "06:30".into(), "12:00".into(), "15:30".into(), "18:00".into(), "19:30".into()],
+            times: vec![
+                "05:00".into(),
+                "06:30".into(),
+                "12:00".into(),
+                "15:30".into(),
+                "18:00".into(),
+                "19:30".into(),
+            ],
             ..Default::default()
         }
     }
@@ -122,7 +129,8 @@ mod tests {
     #[test]
     fn store_then_load_roundtrips() {
         let dir = temp_dir("roundtrip");
-        let stored = store(&dir, "grande-mosquee-de-paris", &sample_conf()).expect("store");
+        let stored =
+            store(&dir, "grande-mosquee-de-paris", &sample_conf()).expect("store");
         let (fetched_at, conf) = load(&dir, "grande-mosquee-de-paris").expect("load");
         assert_eq!(fetched_at, stored);
         assert_eq!(conf.times.len(), 6);
@@ -169,15 +177,12 @@ mod tests {
             "not json",
             "42",
             "[1, 2, 3]",
-            r#"{"version":1,"mosque_slug":"x"}"#,            // truncated envelope
+            r#"{"version":1,"mosque_slug":"x"}"#, // truncated envelope
             r#"{"version":1,"mosque_slug":"x","fetched_at":"nope","conf":{}}"#, // bad date
             r#"{"version":99,"mosque_slug":"x","fetched_at":"2026-10-01","conf":{}}"#, // future version
         ] {
             std::fs::write(snapshot_path(&dir, "some-mosque"), content).unwrap();
-            assert!(
-                load(&dir, "some-mosque").is_none(),
-                "{content:?} must not load"
-            );
+            assert!(load(&dir, "some-mosque").is_none(), "{content:?} must not load");
         }
     }
 

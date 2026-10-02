@@ -16,7 +16,8 @@ use mawaqit_api::{disk, MawaqitClient};
 /// Serve one canned response for every request (raw TCP, like the hostile
 /// HTTP suite). Requests are counted.
 fn spawn_mock(response: String) -> (String, thread::JoinHandle<()>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("mock binds an ephemeral port");
+    let listener =
+        TcpListener::bind("127.0.0.1:0").expect("mock binds an ephemeral port");
     let base = format!("http://{}", listener.local_addr().expect("local addr"));
     let handle = thread::spawn(move || {
         for stream in listener.incoming() {
@@ -97,14 +98,15 @@ async fn failed_fetch_falls_back_to_the_snapshot() {
     let dir = temp_dir("fallback");
     // Seed the snapshot through the public API (a previous online session).
     let (base, _server) = spawn_mock(mosque_page());
-    let online = MawaqitClient::with_base_urls(base.clone(), base)
-        .with_disk_cache(dir.clone());
+    let online =
+        MawaqitClient::with_base_urls(base.clone(), base).with_disk_cache(dir.clone());
     online.conf_data(SLUG).await.expect("seed fetch");
     drop(_server);
 
     // Now the network is gone; the snapshot must serve.
-    let offline = MawaqitClient::with_base_urls(DEAD_BASE.to_string(), DEAD_BASE.to_string())
-        .with_disk_cache(dir);
+    let offline =
+        MawaqitClient::with_base_urls(DEAD_BASE.to_string(), DEAD_BASE.to_string())
+            .with_disk_cache(dir);
     let (conf, as_of) = offline.conf_data_dated(SLUG).await.expect("offline fallback");
     assert_eq!(conf.name.as_deref(), Some("Snapshot Test Mosque"));
     assert!(as_of.is_some(), "served-from-snapshot must carry its date");
@@ -117,8 +119,9 @@ async fn failed_fetch_falls_back_to_the_snapshot() {
 #[tokio::test]
 async fn offline_without_a_snapshot_is_an_error() {
     let dir = temp_dir("empty");
-    let offline = MawaqitClient::with_base_urls(DEAD_BASE.to_string(), DEAD_BASE.to_string())
-        .with_disk_cache(dir);
+    let offline =
+        MawaqitClient::with_base_urls(DEAD_BASE.to_string(), DEAD_BASE.to_string())
+            .with_disk_cache(dir);
     assert!(offline.conf_data_dated(SLUG).await.is_err());
 }
 
@@ -126,8 +129,9 @@ async fn offline_without_a_snapshot_is_an_error() {
 async fn hostile_snapshot_file_degrades_to_an_error() {
     let dir = temp_dir("hostile");
     std::fs::write(disk::snapshot_path(&dir, SLUG), "{\"version\":1,\"mos").unwrap();
-    let offline = MawaqitClient::with_base_urls(DEAD_BASE.to_string(), DEAD_BASE.to_string())
-        .with_disk_cache(dir);
+    let offline =
+        MawaqitClient::with_base_urls(DEAD_BASE.to_string(), DEAD_BASE.to_string())
+            .with_disk_cache(dir);
     assert!(
         offline.conf_data_dated(SLUG).await.is_err(),
         "a truncated snapshot must not serve, and must not panic"
@@ -136,6 +140,7 @@ async fn hostile_snapshot_file_degrades_to_an_error() {
 
 #[tokio::test]
 async fn without_disk_cache_the_client_behaves_as_before() {
-    let client = MawaqitClient::with_base_urls(DEAD_BASE.to_string(), DEAD_BASE.to_string());
+    let client =
+        MawaqitClient::with_base_urls(DEAD_BASE.to_string(), DEAD_BASE.to_string());
     assert!(client.conf_data_dated(SLUG).await.is_err(), "no cache, no fallback");
 }

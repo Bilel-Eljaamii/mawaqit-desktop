@@ -17,12 +17,16 @@ pnpm test
 
 # the red-team finding probes (each deliberately FAILS until its finding
 # is fixed — see the findings table below; offline, fast)
-cargo test -p mawaqit-api --no-fail-fast --test hostile_http --test hostile_semantics -- --ignored
+cargo test -p mawaqit-api --no-fail-fast --test hostile_http --test hostile_semantics --test hostile_fuzz -- --ignored
 cargo test -p mawaqit_desktop --no-fail-fast --lib --test config_hardening -- --ignored
+
+# the mutation fuzzers (in-tree, deterministic seeds — part of `cargo test`
+# / `pnpm test`, no nightly needed)
+cargo test -p mawaqit-api --test hostile_fuzz
+cargo test -p mawaqit_desktop --test hostile_corpus
 
 # live-site campaigns (slow, online)
 cargo test -p mawaqit-api --test world_hostile -- --ignored --nocapture
-cd mawaqit-api/fuzz && cargo fuzz run parse_page   # nightly toolchain
 ```
 
 ## Suite map
@@ -39,7 +43,9 @@ cd mawaqit-api/fuzz && cargo fuzz run parse_page   # nightly toolchain
 | `tests/frontend/hostile-display.test.ts` | webview rendering | XSS payload zoo through every rendering path; CSS URL sanitizer breakouts; countdown rollover |
 | `tests/frontend/notifications.test.ts` | alerts settings | hostile IPC alerts blocks (wrong types, bad enums, clamped numbers, XSS sound paths); stepper/clamp/apply-to-all contracts |
 | `mawaqit-api/src/disk.rs` (`#[cfg(test)]`) + `tests/disk_cache.rs` | offline snapshots | attacker-writable snapshot files: garbage/truncated/wrong-slug/wrong-version degrade to "no snapshot"; hostile slugs can't escape the cache dir (hashed filenames); served-from-snapshot behavior pinned end-to-end |
-| `mawaqit-api/fuzz/fuzz_targets/` | parser | libFuzzer campaigns beyond the pinned corpus (pre-existing) |
+| `mawaqit-api/tests/hostile_fuzz.rs` | search + URL + snapshots | seeded mutation fuzzer (10 000+ deterministic mutants): search-response model, `page_url`, `minutes_between`, snapshot store/load under byte-level mutation |
+| `src-tauri/tests/hostile_corpus.rs` | desktop layer | seeded mutation fuzzer: config files → `load_config_from`, alarm entries → `next_prayer`/`is_due` (countdown never negative), hostile confData → `TodayPayload` IPC serialization must never fail, `AlertsConfig` structure + volume clamping |
+| `tests/frontend/hostile-fuzz.test.ts` | webview + alerts UI | seeded mutation fuzzer: `sanitizeCssUrl` breakouts, time parsing, countdown clock shape, `normalizeAlerts` against structurally-hostile configs, DOM inertness under mutated strings |
 
 Test-enabling seams added (no behavior change for production callers):
 `MawaqitClient::with_base_urls()` + `mawaqit_api::page_url()` (point the
@@ -64,6 +70,8 @@ Fix the code, un-ignore the test, and it becomes the regression guard.
 | F7 | — | **CSP was null.** Fixed during this engagement (a real policy now exists in `tauri.conf.json`); the former finding test is now the always-run contract `config_hardening::csp_is_configured`. | — |
 | F8 | Medium | **`withGlobalTauri: true` with no consumer.** The frontend imports bundled `@tauri-apps/api` modules; the global `window.__TAURI__` only serves any script that manages to run in the webview, handing it every IPC command including `update_config`. Fix: set `"withGlobalTauri": false`. | `config_hardening::finding_f8_…` |
 | F9 | Medium | **One missing config field wipes the whole config.** `sound_enabled` is the only `AppConfig` field without `#[serde(default)]`, so a config carrying the mosque but missing that bool fails to parse entirely and silently resets the app to "no mosque" (trivially reachable by a truncated write or tamper). Fix: `#[serde(default = "default_true")]`. **FIXED in v0.2.0** (the per-prayer alerts block landed with serde defaults on every field, and `sound_enabled` got the same treatment); probe un-ignored and now the regression guard. | `config::tests::finding_f9_partial_config_…` (now always-run) |
+| F10 | Medium | **Wire-tolerated confData produces unreadable snapshots** *(found by `hostile_fuzz`)*. The live path tolerates oddities (null entries in calendar rows drop the iqama calendar; non-string display fields collapse to `None`), but `ConfData.raw` still carries them and `disk::load` deserializes raw through strict serde — so a mosque whose page parses fine stores a snapshot that never loads: offline mode silently dead for exactly the messy real-world mosques, plus a refetch every launch. Fix: fall back to scraper-style tolerant extraction from `envelope.conf` on strict-serde failure (or sanitize `raw` at store time). | `hostile_fuzz::finding_f10_snapshot_roundtrips_wire_tolerated_shapes` |
+| F11 | Low | **`sanitizeCssUrl` emits a different URL than it validated** *(found by `hostile-fuzz.test.ts`)*. The URL parser strips tab/newline control chars *before* the scheme check, so `"http\t://pics.test/x"` passes the http(s)-only gate — but the sanitizer returns the escaped *raw* string (`http%09://…`), not the URL that was validated. Worst case is a request to an app-origin path, never script execution. Fix: emit the parsed URL (`new URL(raw).toString()`, escaped) instead of raw. | vitest `FINDING F11` probe in `hostile-fuzz.test.ts` |
 
 Notes (no test): `tauri-plugin-opener` and its `opener:default` capability are
 granted but the frontend never calls it — consider dropping the dependency to
@@ -87,7 +95,8 @@ audio device". The dialog capability added for the picker is read-only
 - `sanitizeCssUrl` rejects every non-http(s) scheme (including control-char
   scheme smuggling that the URL parser would normalize) and percent-encodes
   every CSS string-breakout character before the mosque image enters
-  `url("…")`.
+  `url("…")`. One gap remains — the emitted string can differ from the
+  validated URL when control chars are involved (F11, low).
 - The HTTP client caps response size, enforces connect/request timeouts, and
   rejects non-UTF8 bodies; search words are percent-encoded by reqwest (CRLF
   smuggling provably never reaches the wire).

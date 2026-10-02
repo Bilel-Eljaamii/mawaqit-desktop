@@ -6,7 +6,8 @@ pub mod presentation;
 use std::{collections::HashSet, path::PathBuf, time::Duration};
 
 use application::prayer_logic::{
-    adhan_entries, iqama_entries, is_due, minutes_before, next_prayer, MAX_NOTIFY_BEFORE_MIN,
+    adhan_entries, iqama_entries, is_due, minutes_before, next_prayer,
+    MAX_NOTIFY_BEFORE_MIN,
 };
 use chrono::Local;
 use domain::models::{AppConfig, AthanMode, TodayPayload};
@@ -21,8 +22,8 @@ use tauri_plugin_notification::NotificationExt;
 pub fn run() {
     // The disk snapshot makes prayer times (and the alarms) survive a dead
     // network: fetched pages are stored, failures fall back to the store.
-    let client = MawaqitClient::new()
-        .with_disk_cache(infrastructure::config::cache_dir());
+    let client =
+        MawaqitClient::new().with_disk_cache(infrastructure::config::cache_dir());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
@@ -52,7 +53,9 @@ pub fn run() {
             infrastructure::desktop::ensure_autostart_entry();
 
             if let Some(window) = app.get_webview_window("main") {
-                if let Ok(img) = image::load_from_memory(include_bytes!("../icons/icon.png")) {
+                if let Ok(img) =
+                    image::load_from_memory(include_bytes!("../icons/icon.png"))
+                {
                     let rgba = img.into_rgba8();
                     let (width, height) = rgba.dimensions();
                     let _ = window.set_icon(tauri::image::Image::new_owned(
@@ -121,7 +124,9 @@ async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
             match client.conf_data_dated(&config.mosque_slug).await {
                 Ok((conf, as_of)) => {
                     match mawaqit_api::times_for_date(&conf, Local::now().date_naive()) {
-                        Ok(times) => today = Some(TodayPayload::from_conf(&conf, times, as_of)),
+                        Ok(times) => {
+                            today = Some(TodayPayload::from_conf(&conf, times, as_of))
+                        }
                         Err(e) => set_tray_status(&handle, &format!("Mawaqit: {e}")),
                     }
                 }
@@ -165,7 +170,9 @@ fn tick(
 
     // Per-prayer alerts: each prayer's heads-up and adhan behavior are
     // configured independently.
-    for (index, (name, time)) in adhan_entries(&payload.times.adhan).into_iter().enumerate() {
+    for (index, (name, time)) in
+        adhan_entries(&payload.times.adhan).into_iter().enumerate()
+    {
         let alerts = config.alerts.prayer(index);
 
         // Pre-adhan notification, exactly once per prayer and day. Config

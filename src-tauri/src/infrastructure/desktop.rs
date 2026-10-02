@@ -46,9 +46,8 @@ pub fn ensure_menu_entry() {
         return;
     };
 
-    let icon_path = data_dir
-        .join("icons/hicolor/256x256/apps")
-        .join(format!("{APP_ICON_NAME}.png"));
+    let icon_path =
+        data_dir.join("icons/hicolor/256x256/apps").join(format!("{APP_ICON_NAME}.png"));
     write_if_changed(&icon_path, APP_ICON_PNG);
 
     let Some(exec) = entry_exec_path().map(|p| p.display().to_string()) else {
@@ -65,7 +64,8 @@ pub fn ensure_menu_entry() {
          Categories=Utility;\n\
          StartupWMClass={WM_CLASS}\n"
     );
-    let desktop_path = data_dir.join("applications").join(format!("{APP_ICON_NAME}.desktop"));
+    let desktop_path =
+        data_dir.join("applications").join(format!("{APP_ICON_NAME}.desktop"));
     write_if_changed(&desktop_path, entry.as_bytes());
 }
 

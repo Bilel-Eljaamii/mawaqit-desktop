@@ -251,10 +251,8 @@ mod tests {
     #[test]
     fn legacy_config_without_alerts_seeds_from_the_sound_switch() {
         // sound_enabled=true (defaulted) -> every prayer plays the adhan.
-        let path = write_temp(
-            "legacy-on",
-            r#"{"mosque_slug":"grande-mosquee-de-paris"}"#,
-        );
+        let path =
+            write_temp("legacy-on", r#"{"mosque_slug":"grande-mosquee-de-paris"}"#);
         let cfg = load_config_from(&path);
         cleanup(&path);
         for name in ["fajr", "dhuhr", "asr", "maghrib", "isha"] {
@@ -292,24 +290,18 @@ mod tests {
         cleanup(&path);
         // The explicit isha setting wins even though sound_enabled is false;
         // the other prayers still seed from the legacy switch.
-        assert_eq!(
-            cfg.alerts.isha.mode,
-            crate::domain::models::AthanMode::Default
-        );
-        assert_eq!(
-            cfg.alerts.fajr.mode,
-            crate::domain::models::AthanMode::Silent
-        );
+        assert_eq!(cfg.alerts.isha.mode, crate::domain::models::AthanMode::Default);
+        assert_eq!(cfg.alerts.fajr.mode, crate::domain::models::AthanMode::Silent);
     }
 
     #[test]
     fn wrong_typed_alerts_block_falls_back_to_defaults() {
         let cases = [
-            r#"{"mosque_slug":"x","alerts":42}"#,                       // int block
-            r#"{"mosque_slug":"x","alerts":"silent"}"#,                 // string block
+            r#"{"mosque_slug":"x","alerts":42}"#, // int block
+            r#"{"mosque_slug":"x","alerts":"silent"}"#, // string block
             r#"{"mosque_slug":"x","alerts":{"fajr":{"mode":"LOUD"}}}"#, // bad enum string
-            r#"{"mosque_slug":"x","alerts":{"fajr":{"mode":3}}}"#,      // int mode
-            r#"{"mosque_slug":"x","alerts":{"asr":{"volume":9999}}}"#,  // out-of-u8 volume
+            r#"{"mosque_slug":"x","alerts":{"fajr":{"mode":3}}}"#, // int mode
+            r#"{"mosque_slug":"x","alerts":{"asr":{"volume":9999}}}"#, // out-of-u8 volume
             r#"{"mosque_slug":"x","alerts":{"isha":{"notify_before_min":"5"}}}"#, // string minutes
         ];
         for content in cases {
@@ -359,10 +351,7 @@ mod tests {
         cleanup(&path);
         assert_eq!(cfg.mosque_slug, "paris");
         assert_eq!(cfg.alerts.dhuhr.volume, Some(40));
-        assert_eq!(
-            cfg.alerts.fajr,
-            crate::domain::models::PrayerAlerts::default()
-        );
+        assert_eq!(cfg.alerts.fajr, crate::domain::models::PrayerAlerts::default());
     }
 
     #[test]

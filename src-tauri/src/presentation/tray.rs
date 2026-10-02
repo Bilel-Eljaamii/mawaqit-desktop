@@ -61,13 +61,8 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let open_item = MenuItem::with_id(app, "open", "Open Mawaqit", true, None::<&str>)?;
     let refresh_item =
         MenuItem::with_id(app, "refresh", "Refresh prayer times", true, None::<&str>)?;
-    let stop_athan_item = MenuItem::with_id(
-        app,
-        "stop-athan",
-        "Stop athan sound",
-        true,
-        None::<&str>,
-    )?;
+    let stop_athan_item =
+        MenuItem::with_id(app, "stop-athan", "Stop athan sound", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
@@ -117,7 +112,14 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn draw_digit(image: &mut RgbaImage, x: u32, y: u32, digit: u8, color: Rgba<u8>, scale: u32) {
+fn draw_digit(
+    image: &mut RgbaImage,
+    x: u32,
+    y: u32,
+    digit: u8,
+    color: Rgba<u8>,
+    scale: u32,
+) {
     let font: [[[bool; 3]; 5]; 10] = [
         [
             [true, true, true],
@@ -272,10 +274,9 @@ pub fn update_tray(app: &AppHandle, minutes: i64, event_label: &str, offline: bo
             "Next: {} in {} min{}",
             event_label, minutes, suffix
         )));
-        let _ = state.next_item.set_text(format!(
-            "Next: {} in {} min{}",
-            event_label, minutes, suffix
-        ));
+        let _ = state
+            .next_item
+            .set_text(format!("Next: {} in {} min{}", event_label, minutes, suffix));
     }
 }
 

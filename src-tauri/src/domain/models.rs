@@ -58,13 +58,7 @@ pub struct AlertsConfig {
 impl AlertsConfig {
     /// The settings for the prayer at `index` in `PRAYERS` order.
     pub fn prayer(&self, index: usize) -> &PrayerAlerts {
-        let all = [
-            &self.fajr,
-            &self.dhuhr,
-            &self.asr,
-            &self.maghrib,
-            &self.isha,
-        ];
+        let all = [&self.fajr, &self.dhuhr, &self.asr, &self.maghrib, &self.isha];
         all.get(index).copied().unwrap_or(&self.fajr)
     }
 
@@ -82,15 +76,9 @@ impl AlertsConfig {
 
     /// Legacy single-switch behavior: any prayer set to play the athan.
     pub fn any_adhan(&self) -> bool {
-        [
-            &self.fajr,
-            &self.dhuhr,
-            &self.asr,
-            &self.maghrib,
-            &self.isha,
-        ]
-        .iter()
-        .any(|p| p.mode == AthanMode::Adhan)
+        [&self.fajr, &self.dhuhr, &self.asr, &self.maghrib, &self.isha]
+            .iter()
+            .any(|p| p.mode == AthanMode::Adhan)
     }
 }
 
@@ -162,7 +150,11 @@ pub struct TodayPayload {
 }
 
 impl TodayPayload {
-    pub fn from_conf(conf: &ConfData, times: TodayTimes, as_of: Option<NaiveDate>) -> Self {
+    pub fn from_conf(
+        conf: &ConfData,
+        times: TodayTimes,
+        as_of: Option<NaiveDate>,
+    ) -> Self {
         Self {
             mosque_name: conf.name.clone(),
             jumua: conf.jumua.clone(),

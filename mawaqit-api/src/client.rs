@@ -4,8 +4,7 @@ use chrono::{Local, NaiveDate};
 
 use crate::{
     cache::TtlCache,
-    calendar,
-    disk,
+    calendar, disk,
     error::{MawaqitError, Result},
     models::{ConfData, MonthIqamaTimes, MonthTimes, Mosque, TodayTimes},
 };

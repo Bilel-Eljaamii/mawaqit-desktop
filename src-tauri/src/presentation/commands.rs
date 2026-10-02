@@ -46,10 +46,8 @@ pub async fn get_today(
     if !config.has_mosque() {
         return Ok(None);
     }
-    let (conf, as_of) = client
-        .conf_data_dated(&config.mosque_slug)
-        .await
-        .map_err(|e| e.to_string())?;
+    let (conf, as_of) =
+        client.conf_data_dated(&config.mosque_slug).await.map_err(|e| e.to_string())?;
     let times = mawaqit_api::times_for_date(&conf, chrono::Local::now().date_naive())
         .map_err(|e| e.to_string())?;
     Ok(Some(TodayPayload::from_conf(&conf, times, as_of)))
@@ -97,7 +95,9 @@ pub fn athan_playing() -> bool {
 #[tauri::command]
 pub fn preview_athan(sound: Option<String>, volume: Option<u8>) -> bool {
     let source = match sound.as_deref() {
-        Some(path) if !path.trim().is_empty() => audio::AthanSource::File(PathBuf::from(path)),
+        Some(path) if !path.trim().is_empty() => {
+            audio::AthanSource::File(PathBuf::from(path))
+        }
         _ => audio::AthanSource::Builtin,
     };
     audio::play_athan(source, volume)

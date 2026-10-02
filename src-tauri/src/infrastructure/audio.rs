@@ -48,10 +48,7 @@ pub fn effective_volume(percent: Option<u8>) -> f32 {
 pub fn play_athan(source: AthanSource, volume_percent: Option<u8>) -> bool {
     let sender = COMMANDS.get_or_init(spawn_audio_thread);
     PLAYING.store(true, Ordering::SeqCst);
-    let play = Command::Play {
-        source,
-        volume: effective_volume(volume_percent),
-    };
+    let play = Command::Play { source, volume: effective_volume(volume_percent) };
     if sender.send(play).is_err() {
         PLAYING.store(false, Ordering::SeqCst);
         return false;
@@ -140,7 +137,9 @@ fn open_media(source: &AthanSource) -> Result<MediaSource, String> {
             }
             std::fs::File::open(path)
                 .map(|f| MediaSource::Filesystem(std::io::BufReader::new(f)))
-                .map_err(|e| format!("Could not open custom athan {}: {e}", path.display()))
+                .map_err(|e| {
+                    format!("Could not open custom athan {}: {e}", path.display())
+                })
         }
     }
 }
@@ -206,8 +205,8 @@ mod tests {
                 .subsec_nanos()
         ));
         std::fs::write(&path, [0xFFu8, 0x00, b'M', b'Z', 0x01, 0x02]).unwrap();
-        let decoded = open_media(&AthanSource::File(path.clone()))
-            .and_then(|media| match media {
+        let decoded =
+            open_media(&AthanSource::File(path.clone())).and_then(|media| match media {
                 MediaSource::Filesystem(reader) => {
                     Decoder::new(reader).map(|_| ()).map_err(|e| e.to_string())
                 }
