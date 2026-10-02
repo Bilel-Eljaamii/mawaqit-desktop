@@ -7,6 +7,30 @@ public data (Tauri 2 — Rust backend, vanilla TypeScript frontend). Search for 
 and the app lives in your tray: it counts down to the next prayer, raises a notification when the
 adhan starts, plays the athan, and can remind you at iqama time too.
 
+## Repository layout
+
+This is a **single-repo Cargo workspace** on purpose: the app and its client
+library evolve in lockstep, and one commit can carry a parser fix together
+with the tests that prove it. `mawaqit-api` keeps clean crate metadata, so
+publishing it to crates.io later needs no repository split.
+
+| Path | What it is |
+|---|---|
+| `src/`, `index.html` | Frontend (vanilla TypeScript + Vite), rendered by Tauri |
+| `src-tauri/` | Desktop app crate (domain / application / infrastructure / presentation) |
+| `mawaqit-api/` | Keyless Rust client library for mawaqit.net (reusable, MIT) |
+| `mawaqit-api/fuzz/` | libFuzzer targets + corpus for the page parser (own workspace, nightly) |
+| `tests/frontend/` | Vitest hostile-rendering suite |
+| `docs/` | Product material (deck, design notes) |
+| `scripts/` | Build helpers (cross-compile wrappers) |
+
+## Repository structure decision
+
+One repo, not two: a parser fix and the app tests that pin it land atomically,
+there is no version dance between crates, and `mawaqit-api` can still be
+published to crates.io from here when there is demand
+(`mawaqit-api = { version = "0.3", path = "mawaqit-api" }`).
+
 ## Features
 
 - **Keyless** — uses mawaqit.net's public mosque-search endpoint and the data embedded in each
@@ -121,7 +145,7 @@ cargo test -p mawaqit-api -- --ignored --nocapture                       # one m
 cargo test -p mawaqit-api --test world_hostile -- --ignored --nocapture  # 131 mosques, 5 continents
 
 # Fuzzing (libFuzzer via cargo-fuzz, nightly):
-cd fuzz && RUSTC_WRAPPER= cargo +nightly fuzz run parse_page -- -max_total_time=90
+cd mawaqit-api/fuzz && RUSTC_WRAPPER= cargo +nightly fuzz run parse_page -- -max_total_time=90
 ```
 
 The world tour asserts structural invariants for every mosque (valid times, complete calendars,

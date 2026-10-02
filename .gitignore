@@ -3,9 +3,9 @@
 # ------------------------------------------------------------------------------
 node_modules/
 jspm_packages/
-fuzz/target/
-fuzz/artifacts/
-fuzz/corpus/
+mawaqit-api/fuzz/target/
+mawaqit-api/fuzz/artifacts/
+mawaqit-api/fuzz/corpus/
 .npm/
 
 # ------------------------------------------------------------------------------
@@ -143,3 +143,4 @@ harness-plan.json
 Notes.md
 bundle.json
 .zcodeignore
+.gitnexus/

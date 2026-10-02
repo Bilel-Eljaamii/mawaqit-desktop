@@ -22,7 +22,7 @@ cargo test -p mawaqit_desktop --no-fail-fast --lib --test config_hardening -- --
 
 # live-site campaigns (slow, online)
 cargo test -p mawaqit-api --test world_hostile -- --ignored --nocapture
-cargo fuzz run parse_page        # in fuzz/, nightly toolchain
+cd mawaqit-api/fuzz && cargo fuzz run parse_page   # nightly toolchain
 ```
 
 ## Suite map
@@ -39,7 +39,7 @@ cargo fuzz run parse_page        # in fuzz/, nightly toolchain
 | `tests/frontend/hostile-display.test.ts` | webview rendering | XSS payload zoo through every rendering path; CSS URL sanitizer breakouts; countdown rollover |
 | `tests/frontend/notifications.test.ts` | alerts settings | hostile IPC alerts blocks (wrong types, bad enums, clamped numbers, XSS sound paths); stepper/clamp/apply-to-all contracts |
 | `mawaqit-api/src/disk.rs` (`#[cfg(test)]`) + `tests/disk_cache.rs` | offline snapshots | attacker-writable snapshot files: garbage/truncated/wrong-slug/wrong-version degrade to "no snapshot"; hostile slugs can't escape the cache dir (hashed filenames); served-from-snapshot behavior pinned end-to-end |
-| `fuzz/fuzz_targets/` | parser | libFuzzer campaigns beyond the pinned corpus (pre-existing) |
+| `mawaqit-api/fuzz/fuzz_targets/` | parser | libFuzzer campaigns beyond the pinned corpus (pre-existing) |
 
 Test-enabling seams added (no behavior change for production callers):
 `MawaqitClient::with_base_urls()` + `mawaqit_api::page_url()` (point the
