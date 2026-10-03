@@ -16,6 +16,14 @@
   box-sizing: border-box;
 }
 
+/* The hidden attribute must always win. Author display rules (the flex
+   dialogs, the Today view) otherwise override the UA's
+   "[hidden] { display: none }" and leave "hidden" panels on screen —
+   the announce dialog and adhan options shipped with exactly that bug. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -972,6 +980,11 @@ body.glance-mode {
   width: 520px;
   max-width: 92vw;
   max-height: 80vh;
+}
+
+/* Layout only while actually shown — a bare `display:` on the id would
+   beat the UA's [hidden] rule (the 2026-10-03 unclosable-inbox defect). */
+#announce-dialog:not([hidden]) {
   display: flex;
   flex-direction: column;
 }

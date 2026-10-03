@@ -97,3 +97,18 @@ describe("pruneRead", () => {
     expect(pruneRead([], ["a"])).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------- css guard
+
+import { readFileSync } from "node:fs";
+
+describe("stylesheet hidden-guard (regression: unclosable announce dialog)", () => {
+  it("forces the hidden attribute over author display rules", () => {
+    // v0.5.0 shipped #announce-dialog { display: flex }, whose author rule
+    // beat the UA's [hidden] { display: none } — the dialog could never be
+    // closed. The guard rule must stay present for EVERY hidden-toggled
+    // element (announce dialog, adhan options, the Today view).
+    const css = readFileSync("src/styles.css", "utf8"); // vitest runs from the project root
+    expect(css).toMatch(/\[hidden\]\s*\{[^}]*display:\s*none\s*!important[^}]*\}/);
+  });
+});
