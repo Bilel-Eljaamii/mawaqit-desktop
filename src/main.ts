@@ -79,7 +79,6 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string): T =>
 
 let config: AppConfig | null = null;
 let payload: TodayPayload | null = null;
-let selectedMosque: Mosque | null = null;
 let monthIndex = new Date().getMonth() + 1; // 1-12
 let monthMode: "adhan" | "iqama" = "adhan";
 
@@ -374,7 +373,6 @@ function openSettings(): void {
   ($("set-iqama") as HTMLInputElement).checked = config.iqama_alerts;
   ($("set-autostart") as HTMLInputElement).checked = config.autostart;
   $("set-status").textContent = "";
-  selectedMosque = null;
   $("overlay").hidden = false;
   $("settings-dialog").hidden = false;
 }
@@ -387,7 +385,6 @@ function openMosque(): void {
     config.mosque_name ?? (config.mosque_slug || "None");
   $("set-results").innerHTML = "";
   $("set-status").textContent = "";
-  selectedMosque = null;
   $("overlay").hidden = false;
   $("mosque-dialog").hidden = false;
 }
@@ -425,10 +422,14 @@ function refreshAnnounceBadge(): void {
 
 async function persistAnnouncementsRead(read: string[]): Promise<void> {
   if (!config) return;
-  const cfg = await invoke<AppConfig>("get_config");
-  cfg.announcements_read = read;
-  await invoke("update_config", { config: cfg });
-  config = cfg;
+  try {
+    const cfg = await invoke<AppConfig>("get_config");
+    cfg.announcements_read = read;
+    await invoke("update_config", { config: cfg });
+    config = cfg;
+  } catch (e) {
+    toast(`Failed to save read state: ${e}`);
+  }
 }
 
 function renderAnnounceList(): void {
@@ -476,7 +477,9 @@ function renderAnnounceList(): void {
     list.appendChild(row);
   }
 
-  const unread = countUnread(items, config?.announcements_read ?? []);
+  // Counts and mark-all cover the FULL announcement list — the 50-item cap
+  // is render-only, so the toolbar and the badge can never disagree.
+  const unread = countUnread(payload?.announcements ?? [], config?.announcements_read ?? []);
   $("announce-unread").textContent =
     unread === 0 ? "All caught up." : `${unread} unread`;
   ($("announce-mark-all") as HTMLButtonElement).hidden = unread === 0;
@@ -517,11 +520,9 @@ function closeSettings(): void {
 async function saveSettings(): Promise<void> {
   const status = $("set-status");
   try {
+    // Mosque switching applies immediately from its own dialog; this dialog
+    // only carries the toggles.
     let cfg = await invoke<AppConfig>("get_config");
-    if (selectedMosque) {
-      cfg.mosque_slug = selectedMosque.slug!;
-      cfg.mosque_name = selectedMosque.label ?? selectedMosque.name ?? null;
-    }
     cfg.iqama_alerts = ($("set-iqama") as HTMLInputElement).checked;
     cfg.autostart = ($("set-autostart") as HTMLInputElement).checked;
 
@@ -682,6 +683,14 @@ async function bootGlance(): Promise<void> {
     if (text !== undefined) node.textContent = text;
     return node;
   };
+  // Mouse-closable at all times: the blur-hide is best-effort (focus events
+  // are not guaranteed for an always-on-top overlay), so the overlay must
+  // never depend on the keyboard to go away.
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "glance-close";
+  closeBtn.title = "Close";
+  closeBtn.textContent = "\u2715";
+  closeBtn.addEventListener("click", () => void getCurrentWindow().hide());
   const mosque = el("glance-mosque", "Mawaqit");
   const label = el("glance-label", "Next prayer");
   const name = el("glance-name", "—");
@@ -689,7 +698,7 @@ async function bootGlance(): Promise<void> {
   const offline = el("glance-offline");
   offline.hidden = true;
   const rows = el("glance-rows");
-  document.body.replaceChildren(root(mosque, label, name, countdown, offline, rows));
+  document.body.replaceChildren(root(closeBtn, mosque, label, name, countdown, offline, rows));
 
   const render = async (): Promise<void> => {
     try {
@@ -941,7 +950,6 @@ document.addEventListener("DOMContentLoaded", () => {
       ($("set-search") as HTMLInputElement).value,
       $("set-results"),
       (m) => {
-        selectedMosque = m;
         $("set-current-mosque").textContent = mosqueDisplayName(m);
         void pickMosqueFromDialog(m);
       },

@@ -75,12 +75,18 @@ describe("markRead", () => {
 });
 
 describe("markAllRead", () => {
-  it("marks only the visible cap of announcements", () => {
+  it("marks the FULL list — the inbox cap is render-only", () => {
     const items = Array.from({ length: 300 }, (_, i) => item(`a${i}`));
     const read = markAllRead(items, []);
-    expect(read).toHaveLength(MAX_INBOX_ITEMS);
+    expect(unreadCount(items, read)).toBe(0);
     expect(read).toContain("a0");
-    expect(read).not.toContain(`a${MAX_INBOX_ITEMS}`);
+    expect(read).toContain("a299");
+  });
+
+  it("respects the read-list cap with enormous lists", () => {
+    const items = Array.from({ length: MAX_READ_ENTRIES + 100 }, (_, i) => item(`a${i}`));
+    const read = markAllRead(items, []);
+    expect(read).toHaveLength(MAX_READ_ENTRIES);
   });
 });
 

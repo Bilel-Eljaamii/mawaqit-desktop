@@ -42,11 +42,13 @@ export function markRead(read: string[], id: string): string[] {
   return next.length > MAX_READ_ENTRIES ? next.slice(next.length - MAX_READ_ENTRIES) : next;
 }
 
-/** Mark every currently-visible announcement read, capped like markRead. */
+/** Mark every announcement read (the 50-item cap is render-only: the badge
+ * counts the full list, so mark-all must clear the full list too). Capped
+ * like markRead. */
 export function markAllRead(items: AnnouncementItem[], read: string[]): string[] {
   const seen = new Set(read);
   const next = [...read];
-  for (const a of visibleAnnouncements(items)) {
+  for (const a of items) {
     if (!seen.has(a.id)) next.push(a.id);
   }
   return next.length > MAX_READ_ENTRIES ? next.slice(next.length - MAX_READ_ENTRIES) : next;

@@ -41,7 +41,9 @@ published to crates.io from here when there is demand
   and per-item read state is stored locally. Text only by design — no wire images or videos.
 - **Quick glance anywhere** — a global shortcut (`Ctrl+Alt+P`) pops a compact
   frameless overlay with today's times and the live countdown; it dismisses
-  itself on focus loss. The tray menu also lists today's times (next prayer
+  itself on focus loss, with Escape or its own close button (a shortcut that
+  can't be registered — another app owning it — degrades to no shortcut,
+  never blocks the app). The tray menu also lists today's times (next prayer
   marked), and the window title carries the countdown for alt-tab/taskbar.
 - **Works offline** — every successful fetch stores a snapshot of the mosque's whole year
   (adhan + iqama calendars) in the app config directory; when the network is down the app
