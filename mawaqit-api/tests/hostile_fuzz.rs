@@ -206,7 +206,6 @@ fn fuzz_disk_snapshot_load_never_panics() {
 /// `envelope.conf` when strict serde fails (or sanitize `raw` at store
 /// time), then un-ignore.
 #[test]
-#[ignore = "RED TEAM FINDING F10: wire-tolerated confData produces unreadable snapshots"]
 fn finding_f10_snapshot_roundtrips_wire_tolerated_shapes() {
     let dir = temp_dir("f10");
     // The page parses (scraper drops the broken iqama calendar and the

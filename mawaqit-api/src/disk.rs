@@ -35,15 +35,25 @@ struct SnapshotEnvelope {
     conf: serde_json::Value,
 }
 
-/// The JSON stored in the envelope: the scraped confData object when
-/// present, otherwise the struct itself (whose empty `raw` flattens to
-/// nothing, so no duplicates).
+/// The JSON stored in the envelope: the tolerant struct's serialization,
+/// overlaid with the unmodeled extras from `raw`. Storing the struct (not
+/// the raw object) is what makes messy mosques work (FINDING F10): the
+/// scraper tolerates wire shapes strict serde rejects (nulls inside iqama
+/// rows, numeric names) — serializing raw verbatim would write those shapes
+/// back and the snapshot could never load. Modeled keys always win over raw
+/// keys, so hostile shapes inside them can never reach the file.
 fn conf_to_storage(conf: &ConfData) -> Option<serde_json::Value> {
-    if conf.raw.is_object() {
-        Some(conf.raw.clone())
-    } else {
-        serde_json::to_value(conf).ok()
+    let mut stripped = conf.clone();
+    stripped.raw = serde_json::Value::Null;
+    let mut value = serde_json::to_value(&stripped).ok()?;
+    if let (serde_json::Value::Object(base), serde_json::Value::Object(extras)) =
+        (&mut value, &conf.raw)
+    {
+        for (key, extra) in extras {
+            base.entry(key.clone()).or_insert_with(|| extra.clone());
+        }
     }
+    Some(value)
 }
 
 /// The snapshot file for `slug` inside `dir`. The name is derived from a
@@ -184,6 +194,29 @@ mod tests {
             std::fs::write(snapshot_path(&dir, "some-mosque"), content).unwrap();
             assert!(load(&dir, "some-mosque").is_none(), "{content:?} must not load");
         }
+    }
+
+    #[test]
+    fn messy_wire_shapes_in_raw_never_break_loading() {
+        // F10: the scraper tolerates wire shapes strict serde rejects (nulls
+        // inside iqama rows, numeric names) and collapses them — the stored
+        // file must carry the collapsed values, never the hostile raw ones.
+        let dir = temp_dir("f10");
+        let mut conf = sample_conf();
+        conf.raw = serde_json::json!({
+            "times": ["06:30", "08:00", "13:00", "15:30", "17:45"],
+            "calendar": [{"1": ["06:30","08:00","13:00","15:30","17:45","19:15"]}],
+            "iqamaCalendar": [{"1": ["+10", null, "13:20", "+20", "18:00"]}],
+            "name": 12345
+        });
+        conf.name = Some("Messy Mosque".into());
+
+        store(&dir, "messy-mosque", &conf).expect("store");
+        let (_, loaded) = load(&dir, "messy-mosque").expect("messy snapshot reloads");
+        // The struct's tolerant values win over the hostile raw shapes.
+        assert_eq!(loaded.times.len(), 6);
+        assert_eq!(loaded.name.as_deref(), Some("Messy Mosque"));
+        assert!(loaded.iqama_calendar.is_none(), "scraper dropped the broken iqama calendar");
     }
 
     #[test]
