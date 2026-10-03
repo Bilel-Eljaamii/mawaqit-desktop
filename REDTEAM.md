@@ -83,6 +83,10 @@ Since v0.4.0 there is a second webview (the `?glance` quick-glance overlay):
 it renders the same IPC data through the same textContent-only rules and is
 capability-covered like `main` — no new IPC surface beyond what `main` already
 calls. The tray menu's disabled prayer-time lines are Rust-side strings only.
+Mosque announcements (v0.5.0) are wire strings from confData rendered
+textContent-only with the inbox capped at 50 items; the persisted read-list
+is attacker-writable, capped at 500 entries on save, and typed fields
+fall back to defaults.
 The in-tree mutation fuzzer (`tests/frontend/hostile-fuzz.test.ts`, added
 2026-10-02) found F11: `sanitizeCssUrl` validated one URL but emitted an
 escaped copy of the *raw* string, so control characters the URL parser strips

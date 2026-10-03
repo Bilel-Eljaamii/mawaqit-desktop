@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
-use mawaqit_api::{ConfData, TodayTimes};
+use mawaqit_api::{Announcement, ConfData, TodayTimes};
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
 /// Per-prayer alert behavior, mirroring the Mawaqit mobile app's
 /// Silent / Default / Adhan choice.
@@ -106,6 +107,9 @@ pub struct AppConfig {
     pub autostart: bool,
     #[serde(default)]
     pub alerts: AlertsConfig,
+    /// Ids of mosque announcements the user has read. Capped on save.
+    #[serde(default)]
+    pub announcements_read: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -121,6 +125,7 @@ impl Default for AppConfig {
             iqama_alerts: false,
             autostart: true,
             alerts: AlertsConfig::default(),
+            announcements_read: Vec::new(),
         }
     }
 }
@@ -128,6 +133,34 @@ impl Default for AppConfig {
 impl AppConfig {
     pub fn has_mosque(&self) -> bool {
         !self.mosque_slug.is_empty()
+    }
+}
+
+/// One mosque announcement, normalized for the inbox UI. The id is a
+/// stable string — the wire id when the mosque publishes one, otherwise a
+/// content hash — so per-item read state survives refetches.
+#[derive(Debug, Clone, Serialize)]
+pub struct AnnouncementDto {
+    pub id: String,
+    pub title: Option<String>,
+    pub content: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+}
+
+/// Stable read-state key for an announcement: the wire id when present
+/// (number or string), otherwise a hash of its content.
+pub fn announcement_key(a: &Announcement) -> String {
+    match &a.id {
+        Some(serde_json::Value::Number(n)) => n.to_string(),
+        Some(serde_json::Value::String(s)) if !s.trim().is_empty() => s.clone(),
+        _ => {
+            #[derive(Hash)]
+            struct Key<'a>(&'a Option<String>, &'a Option<String>, &'a Option<String>);
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            Key(&a.title, &a.content, &a.start_date).hash(&mut hasher);
+            format!("hash-{:016x}", hasher.finish())
+        }
     }
 }
 
@@ -147,6 +180,8 @@ pub struct TodayPayload {
     /// Fetch date of the offline snapshot when this data was served from
     /// disk (no network); `None` for live data.
     pub as_of: Option<String>,
+    /// The mosque's announcements (wire order), ids normalized.
+    pub announcements: Vec<AnnouncementDto>,
 }
 
 impl TodayPayload {
@@ -163,6 +198,17 @@ impl TodayPayload {
             imsak_mode: conf.imsak_mode,
             times,
             as_of: as_of.map(|d| d.to_string()),
+            announcements: conf
+                .announcements
+                .iter()
+                .map(|a| AnnouncementDto {
+                    id: announcement_key(a),
+                    title: a.title.clone(),
+                    content: a.content.clone(),
+                    start_date: a.start_date.clone(),
+                    end_date: a.end_date.clone(),
+                })
+                .collect(),
         }
     }
 }

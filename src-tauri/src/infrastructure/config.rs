@@ -75,12 +75,29 @@ fn seed_missing_prayer_alerts(value: &mut serde_json::Value, sound_enabled: bool
     }
 }
 
+/// Bound for the announcement read-list: a hostile or huge config must not
+/// balloon memory, and the newest marks are the ones worth keeping.
+pub const MAX_READ_ANNOUNCEMENTS: usize = 500;
+
+/// Keep at most the newest [`MAX_READ_ANNOUNCEMENTS`] read marks.
+pub fn clamp_announcements_read(mut read: Vec<String>) -> Vec<String> {
+    if read.len() > MAX_READ_ANNOUNCEMENTS {
+        let drop = read.len() - MAX_READ_ANNOUNCEMENTS;
+        read.drain(..drop);
+    }
+    read
+}
+
 pub fn save_config(config: &AppConfig) {
     let path = get_config_path();
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    if let Ok(content) = serde_json::to_string_pretty(config) {
+    let mut trimmed = config.clone();
+    trimmed.announcements_read = clamp_announcements_read(std::mem::take(
+        &mut trimmed.announcements_read,
+    ));
+    if let Ok(content) = serde_json::to_string_pretty(&trimmed) {
         let _ = fs::write(path, content);
     }
 }
@@ -352,6 +369,33 @@ mod tests {
         assert_eq!(cfg.mosque_slug, "paris");
         assert_eq!(cfg.alerts.dhuhr.volume, Some(40));
         assert_eq!(cfg.alerts.fajr, crate::domain::models::PrayerAlerts::default());
+    }
+
+    #[test]
+    fn wrong_typed_announcements_read_falls_back_to_defaults() {
+        for content in [
+            r#"{"mosque_slug":"x","announcements_read":"yes"}"#,
+            r#"{"mosque_slug":"x","announcements_read":42}"#,
+            r#"{"mosque_slug":"x","announcements_read":[1,2,3]}"#,
+        ] {
+            let path = write_temp("bad-read-list", content);
+            let cfg = load_config_from(&path);
+            cleanup(&path);
+            assert_eq!(
+                cfg,
+                AppConfig::default(),
+                "content {content:?} must yield defaults"
+            );
+        }
+    }
+
+    #[test]
+    fn read_list_clamp_keeps_the_newest_marks() {
+        let read: Vec<String> = (0..600).map(|i| i.to_string()).collect();
+        let clamped = clamp_announcements_read(read);
+        assert_eq!(clamped.len(), MAX_READ_ANNOUNCEMENTS);
+        assert_eq!(clamped.first().unwrap(), "100");
+        assert_eq!(clamped.last().unwrap(), "599");
     }
 
     #[test]

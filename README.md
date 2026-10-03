@@ -19,6 +19,7 @@ publishing it to crates.io later needs no repository split.
 | `src/`, `index.html` | Frontend (vanilla TypeScript + Vite), rendered by Tauri |
 | `src-tauri/` | Desktop app crate (domain / application / infrastructure / presentation) |
 | `mawaqit-api/` | Keyless Rust client library for mawaqit.net (reusable, MIT) |
+| *(topbar)* | 🕌 switch mosque · 🔔 per-prayer notifications · ✉ mosque announcements (unread badge) · ⚙ settings |
 | `mawaqit-api/fuzz/` | libFuzzer targets + corpus for the page parser (own workspace, nightly) |
 | `tests/frontend/` | Vitest hostile-rendering suite |
 | `docs/` | Product material (deck, design notes) |
@@ -35,6 +36,9 @@ published to crates.io from here when there is demand
 
 - **Keyless** — uses mawaqit.net's public mosque-search endpoint and the data embedded in each
   mosque's public page. No login, no API key, nothing personal stored or sent.
+- **Mosque announcements inbox** — when your mosque publishes announcements on mawaqit.net,
+  a message icon shows the number you haven't read; the inbox lists them (title, dates, text)
+  and per-item read state is stored locally. Text only by design — no wire images or videos.
 - **Quick glance anywhere** — a global shortcut (`Ctrl+Alt+P`) pops a compact
   frameless overlay with today's times and the live countdown; it dismisses
   itself on focus loss. The tray menu also lists today's times (next prayer

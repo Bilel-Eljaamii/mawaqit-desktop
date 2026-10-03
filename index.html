@@ -17,8 +17,15 @@
           <button class="tab active" id="tab-today" data-view="today">Today</button>
           <button class="tab" id="tab-month" data-view="month">Month</button>
         </nav>
+        <button id="mosque-btn" title="Switch mosque">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20"></path><path d="M4 22V6a8 8 0 0 1 16 0v16"></path><path d="M12 2v4"></path><path d="M9 22v-4a3 3 0 0 1 6 0v4"></path><circle cx="12" cy="11" r="1"></circle></svg>
+        </button>
         <button id="notify-btn" title="Prayer notifications">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        </button>
+        <button id="announce-btn" title="Mosque announcements" class="announce-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span id="announce-badge" class="announce-badge" hidden></span>
         </button>
         <button id="settings-btn" title="Settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -92,10 +99,12 @@
       </main>
     </div>
 
-    <!-- Settings dialog -->
+    <!-- Overlay shared by all dialogs -->
     <div class="overlay" id="overlay" hidden></div>
-    <div id="settings-dialog" hidden>
-      <h2>Settings</h2>
+
+    <!-- Mosque dialog: switching mosques -->
+    <div id="mosque-dialog" hidden>
+      <h2>Your Mosque</h2>
 
       <div class="form-group">
         <label>Current mosque</label>
@@ -107,6 +116,16 @@
         <ul id="set-results" class="results-list"></ul>
       </div>
 
+      <div id="set-status" class="status-msg"></div>
+      <div class="actions">
+        <button id="mosque-cancel-btn" class="btn">Close</button>
+      </div>
+    </div>
+
+    <!-- Settings dialog: everything except mosque switching -->
+    <div id="settings-dialog" hidden>
+      <h2>Settings</h2>
+
       <div class="form-group">
         <label class="checkbox-group">
           <input type="checkbox" id="set-iqama" />
@@ -116,7 +135,8 @@
           <input type="checkbox" id="set-autostart" />
           <span>Run at startup (minimized to tray)</span>
         </label>
-        <p class="form-hint">Per-prayer athan, volume and reminders live in the bell menu.</p>
+        <p class="form-hint">Per-prayer athan, volume and reminders live in the bell menu.
+          Switching mosques lives under the mosque icon.</p>
       </div>
 
       <div id="set-status" class="status-msg"></div>
@@ -124,6 +144,20 @@
         <button id="cancel-btn" class="btn">Cancel</button>
         <button id="save-btn" class="btn btn-primary">Save Settings</button>
       </div>
+    </div>
+
+    <!-- Mosque announcements inbox -->
+    <div id="announce-dialog" hidden>
+      <div class="notify-head">
+        <h2>Mosque Announcements</h2>
+        <button id="announce-close" class="icon-btn" title="Close">&#10005;</button>
+      </div>
+      <div class="announce-toolbar">
+        <span id="announce-unread" class="announce-unread"></span>
+        <span class="row-spacer"></span>
+        <button id="announce-mark-all" class="btn btn-small" type="button" hidden>Mark all read</button>
+      </div>
+      <ul id="announce-list" class="announce-list"></ul>
     </div>
 
     <!-- Prayer notifications dialog (per-prayer settings) -->

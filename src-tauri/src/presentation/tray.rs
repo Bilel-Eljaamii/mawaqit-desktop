@@ -389,6 +389,7 @@ mod tests {
                 }),
             },
             as_of: None,
+            announcements: Vec::new(),
         }
     }
 

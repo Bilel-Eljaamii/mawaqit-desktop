@@ -22,6 +22,13 @@ import {
   stepNotifyBefore,
 } from "./lib/notifications";
 import type { AlertsConfig, AthanMode, PrayerKey } from "./lib/notifications";
+import {
+  markAllRead as markAllReadHelper,
+  markRead as markReadHelper,
+  unreadCount as countUnread,
+  visibleAnnouncements,
+} from "./lib/announcements";
+import type { AnnouncementItem } from "./lib/announcements";
 
 // ---- Types mirroring the Rust serde structs ----
 
@@ -32,6 +39,8 @@ interface AppConfig {
   iqama_alerts: boolean;
   autostart: boolean;
   alerts: AlertsConfig;
+  /** Ids of mosque announcements the user has read (capped backend-side). */
+  announcements_read: string[];
 }
 
 interface TodayTimes {
@@ -49,6 +58,8 @@ interface TodayPayload {
   times: TodayTimes;
   /** Fetch date (ISO) of the offline snapshot when served from disk. */
   as_of: string | null;
+  /** The mosque's announcements (wire order), ids normalized. */
+  announcements: AnnouncementItem[];
 }
 
 interface MonthTimes {
@@ -100,6 +111,7 @@ const DEFAULT_CONFIG: AppConfig = {
   iqama_alerts: false,
   autostart: true,
   alerts: defaultAlerts(),
+  announcements_read: [],
 };
 
 // ---- Prayer notifications panel state ----
@@ -292,6 +304,7 @@ async function loadConfig(): Promise<void> {
 async function loadToday(): Promise<void> {
   payload = await invoke<TodayPayload | null>("get_today");
   renderToday();
+  refreshAnnounceBadge();
 }
 
 function isPayloadMissing(): boolean {
@@ -360,13 +373,140 @@ function openSettings(): void {
   if (!config) return;
   ($("set-iqama") as HTMLInputElement).checked = config.iqama_alerts;
   ($("set-autostart") as HTMLInputElement).checked = config.autostart;
+  $("set-status").textContent = "";
+  selectedMosque = null;
+  $("overlay").hidden = false;
+  $("settings-dialog").hidden = false;
+}
+
+// ---- Mosque dialog (switching) ----
+
+function openMosque(): void {
+  if (!config) return;
   $("set-current-mosque").textContent =
     config.mosque_name ?? (config.mosque_slug || "None");
   $("set-results").innerHTML = "";
   $("set-status").textContent = "";
   selectedMosque = null;
   $("overlay").hidden = false;
-  $("settings-dialog").hidden = false;
+  $("mosque-dialog").hidden = false;
+}
+
+function closeMosque(): void {
+  $("mosque-dialog").hidden = true;
+  if ($("announce-dialog").hidden && $("settings-dialog").hidden) {
+    $("overlay").hidden = true;
+  }
+}
+
+async function pickMosqueFromDialog(mosque: Mosque): Promise<void> {
+  await applyMosque(mosque);
+  closeMosque();
+  showView("today");
+  await loadToday().catch((e) => toast(`Failed to load prayer times: ${e}`));
+  refreshAnnounceBadge();
+}
+
+// ---- Mosque announcements inbox ----
+
+function currentAnnouncements(): AnnouncementItem[] {
+  return visibleAnnouncements(payload?.announcements ?? []);
+}
+
+function refreshAnnounceBadge(): void {
+  const unread = countUnread(
+    payload?.announcements ?? [],
+    config?.announcements_read ?? [],
+  );
+  const badge = $("announce-badge");
+  badge.hidden = unread === 0;
+  badge.textContent = unread > 99 ? "99+" : unread === 0 ? "" : String(unread);
+}
+
+async function persistAnnouncementsRead(read: string[]): Promise<void> {
+  if (!config) return;
+  const cfg = await invoke<AppConfig>("get_config");
+  cfg.announcements_read = read;
+  await invoke("update_config", { config: cfg });
+  config = cfg;
+}
+
+function renderAnnounceList(): void {
+  const items = currentAnnouncements();
+  const read = new Set(config?.announcements_read ?? []);
+  const list = $("announce-list");
+  list.replaceChildren();
+
+  if (items.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "announce-empty";
+    empty.textContent = "No announcements from your mosque.";
+    list.appendChild(empty);
+  }
+  for (const a of items) {
+    const isRead = read.has(a.id);
+    const row = document.createElement("li");
+    row.className = isRead ? "announce-row read" : "announce-row";
+    row.dataset.id = a.id;
+
+    const dot = document.createElement("span");
+    dot.className = "announce-dot";
+    if (!isRead) dot.textContent = "●";
+    const body = document.createElement("div");
+    body.className = "announce-body";
+    const head = document.createElement("div");
+    head.className = "announce-title";
+    head.textContent = a.title ?? a.content ?? "(announcement)";
+    body.appendChild(head);
+    if (a.title !== null && a.content !== null && a.content.trim() !== "") {
+      body.appendChild(el2("announce-content", a.content));
+    }
+    const meta = [a.start_date, a.end_date].filter(Boolean).join(" → ");
+    if (meta) {
+      body.appendChild(el2("announce-date", meta));
+    }
+    row.append(dot, body);
+    row.addEventListener("click", async () => {
+      if (isRead) return;
+      const next = markReadHelper(config?.announcements_read ?? [], a.id);
+      await persistAnnouncementsRead(next);
+      renderAnnounceList();
+      refreshAnnounceBadge();
+    });
+    list.appendChild(row);
+  }
+
+  const unread = countUnread(items, config?.announcements_read ?? []);
+  $("announce-unread").textContent =
+    unread === 0 ? "All caught up." : `${unread} unread`;
+  ($("announce-mark-all") as HTMLButtonElement).hidden = unread === 0;
+}
+
+function el2(cls: string, text?: string): HTMLDivElement {
+  const node = document.createElement("div");
+  node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function openAnnounce(): void {
+  renderAnnounceList();
+  $("overlay").hidden = false;
+  $("announce-dialog").hidden = false;
+}
+
+function closeAnnounce(): void {
+  $("announce-dialog").hidden = true;
+  if ($("mosque-dialog").hidden && $("settings-dialog").hidden) {
+    $("overlay").hidden = true;
+  }
+}
+
+async function markAllAnnouncementsRead(): Promise<void> {
+  const next = markAllReadHelper(currentAnnouncements(), config?.announcements_read ?? []);
+  await persistAnnouncementsRead(next);
+  renderAnnounceList();
+  refreshAnnounceBadge();
 }
 
 function closeSettings(): void {
@@ -670,11 +810,18 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $("settings-btn").addEventListener("click", openSettings);
+  $("mosque-btn").addEventListener("click", openMosque);
+  $("mosque-cancel-btn").addEventListener("click", closeMosque);
+  $("announce-btn").addEventListener("click", openAnnounce);
+  $("announce-close").addEventListener("click", closeAnnounce);
+  $("announce-mark-all").addEventListener("click", () => void markAllAnnouncementsRead());
   $("cancel-btn").addEventListener("click", closeSettings);
   $("save-btn").addEventListener("click", saveSettings);
   $("overlay").addEventListener("click", () => {
     closeSettings();
     closeNotify();
+    closeMosque();
+    closeAnnounce();
   });
 
   // ---- Prayer notifications panel ----
@@ -796,6 +943,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (m) => {
         selectedMosque = m;
         $("set-current-mosque").textContent = mosqueDisplayName(m);
+        void pickMosqueFromDialog(m);
       },
     ),
   );
