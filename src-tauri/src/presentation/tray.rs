@@ -123,6 +123,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let stop_athan_item =
         MenuItem::with_id(app, "stop-athan", "Stop athan sound", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let version_item = MenuItem::with_id(
+        app,
+        "version",
+        format!("Mawaqit Desktop v{}", env!("CARGO_PKG_VERSION")),
+        false,
+        None::<&str>,
+    )?;
 
     let mut items: Vec<&dyn IsMenuItem<Wry>> = vec![&next_item];
     items.extend(prayer_items.iter().map(|m| m as &dyn IsMenuItem<Wry>));
@@ -131,6 +138,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         &refresh_item as &dyn IsMenuItem<Wry>,
         &stop_athan_item as &dyn IsMenuItem<Wry>,
         &quit_item as &dyn IsMenuItem<Wry>,
+        &version_item as &dyn IsMenuItem<Wry>,
     ]);
     let menu = Menu::with_items(app, &items)?;
 

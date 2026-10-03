@@ -1,6 +1,6 @@
 [package]
 name = "mawaqit_desktop"
-version = "0.5.2"
+version = "0.5.3"
 description = "Mawaqit Desktop"
 authors = ["Bilel Eljaamii"]
 edition = "2021"

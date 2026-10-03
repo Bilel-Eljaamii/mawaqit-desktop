@@ -833,6 +833,14 @@ input[type="checkbox"].switch:disabled {
   margin: 8px 0 0;
 }
 
+/* Settings dialog footer: app version. */
+.app-version {
+  margin-top: 14px;
+  font-size: 0.75rem;
+  color: var(--text-soft);
+  text-align: center;
+}
+
 /* ---------- Quick-glance overlay (?glance) ---------- */
 
 body.glance-mode {

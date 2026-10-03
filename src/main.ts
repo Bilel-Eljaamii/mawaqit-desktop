@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -817,6 +818,13 @@ document.addEventListener("DOMContentLoaded", () => {
     $("seg-adhan").classList.remove("active");
     loadMonth();
   });
+
+  // Settings dialog footer: app version (comes from tauri.conf.json).
+  void getVersion()
+    .then((v) => {
+      $("app-version").textContent = `Mawaqit Desktop v${v}`;
+    })
+    .catch((e) => console.warn("getVersion failed:", e));
 
   $("settings-btn").addEventListener("click", openSettings);
   $("mosque-btn").addEventListener("click", openMosque);
