@@ -37,29 +37,38 @@ export function mosqueDisplayName(m: Mosque): string {
 }
 
 /** Only allow plain http(s) URLs into CSS url(...); escape anything a parser
- * could use to escape the string (quotes, backslashes, parens, whitespace). */
+ * could use to escape the string (quotes, backslashes, parens, whitespace).
+ * Emits the *parsed* URL (F11): the URL parser strips tab/newline control
+ * characters before the scheme check, so escaping the raw string would send
+ * CSS a different URL than the one that was validated. */
 export function sanitizeCssUrl(raw: string): string | null {
+  let url: URL;
   try {
-    const url = new URL(raw);
+    url = new URL(raw);
     if (url.protocol !== "https:" && url.protocol !== "http:") return null;
   } catch {
     return null;
   }
+  const normalized = url.toString();
   const escapes: Record<string, string> = {
     '"': "%22", "'": "%27", "\\": "%5C", "(": "%28", ")": "%29",
     " ": "%20", "\n": "%0a", "\r": "%0d", "\t": "%09",
   };
-  return raw.replace(/["'\\()\s]/g, (c) => escapes[c] ?? encodeURIComponent(c));
+  return normalized.replace(/["'\\()\s]/g, (c) => escapes[c] ?? encodeURIComponent(c));
 }
 
 /** Parse an "HH:MM" string (from the wire) into today's Date at that time,
- * or null when it is not a plausible time. */
+ * or null when it is not a plausible time. Strict: hours 00–23, minutes
+ * 00–59 — "25:70" must be rejected, never rolled over by setHours. */
 export function parseHhmmToDate(hhmm: string, dayOffset = 0): Date | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm.trim());
   if (!m) return null;
+  const hours = parseInt(m[1], 10);
+  const minutes = parseInt(m[2], 10);
+  if (hours > 23 || minutes > 59) return null;
   const d = new Date();
   d.setDate(d.getDate() + dayOffset);
-  d.setHours(parseInt(m[1], 10), parseInt(m[2], 10), 0, 0);
+  d.setHours(hours, minutes, 0, 0);
   return d;
 }
 

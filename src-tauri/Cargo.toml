@@ -1,6 +1,6 @@
 [package]
 name = "mawaqit_desktop"
-version = "0.3.0"
+version = "0.4.0"
 description = "Mawaqit Desktop"
 authors = ["Bilel Eljaamii"]
 edition = "2021"
@@ -33,6 +33,11 @@ tauri-plugin-notification = "2.4.0"
 # Native file picker for the per-prayer custom athan sound.
 tauri-plugin-dialog = "2"
 rodio = { version = "0.22.2", features = ["symphonia-mp3"] }
+tauri-plugin-global-shortcut = "2.4.0"
+
+[target.'cfg(windows)'.dependencies]
+# Adhan notification with a "Stop athan" button on Windows.
+tauri-winrt-notification = "0.7"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Notification actions (click to stop the athan) need the freedesktop

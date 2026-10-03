@@ -13,7 +13,10 @@ use chrono::Local;
 use domain::models::{AppConfig, AthanMode, TodayPayload};
 use infrastructure::audio::AthanSource;
 use mawaqit_api::MawaqitClient;
-use presentation::tray::{set_tray_status, setup_tray, update_tray, RefreshFlag};
+use presentation::tray::{
+    prayer_menu_rows, set_tray_status, setup_tray, update_tray, update_tray_prayers,
+    RefreshFlag,
+};
 use tauri::{Emitter, Manager};
 #[cfg(not(target_os = "linux"))]
 use tauri_plugin_notification::NotificationExt;
@@ -32,6 +35,17 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_shortcut("ctrl+alt+p")
+                .expect("the built-in glance shortcut parses")
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        toggle_glance(app);
+                    }
+                })
+                .build(),
+        )
         .manage(client.clone())
         .manage(RefreshFlag::new())
         .invoke_handler(tauri::generate_handler![
@@ -90,9 +104,47 @@ pub fn run() {
                 let _ = window.hide();
                 api.prevent_close();
             }
+            // The quick-glance overlay dismisses itself on focus loss.
+            if window.label() == "glance" {
+                if let tauri::WindowEvent::Focused(false) = event {
+                    let _ = window.hide();
+                }
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Show the quick-glance overlay when hidden, hide it when shown.
+fn toggle_glance(app: &tauri::AppHandle) {
+    if let Some(glance) = app.get_webview_window("glance") {
+        if glance.is_visible().unwrap_or(false) {
+            let _ = glance.hide();
+        } else {
+            let _ = glance.show();
+            let _ = glance.set_focus();
+        }
+    }
+}
+
+/// Pin the glance overlay to the right screen edge: top-right on macOS
+/// (tray lives in the menu bar), bottom-right everywhere else.
+fn position_glance(glance: &tauri::WebviewWindow) {
+    let Ok(Some(monitor)) = glance.primary_monitor() else {
+        return;
+    };
+    let Ok(size) = glance.outer_size() else {
+        return;
+    };
+    let mp = monitor.position();
+    let ms = monitor.size();
+    let margin = 16;
+    let x = mp.x + ms.width as i32 - size.width as i32 - margin;
+    #[cfg(target_os = "macos")]
+    let y = mp.y + margin * 3;
+    #[cfg(not(target_os = "macos"))]
+    let y = mp.y + ms.height as i32 - size.height as i32 - margin * 3;
+    let _ = glance.set_position(tauri::PhysicalPosition::new(x, y));
 }
 
 async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
@@ -167,6 +219,9 @@ fn tick(
     if let Some(next) = next_prayer(&upcoming) {
         update_tray(handle, next.minutes_remaining, &next.name, payload.as_of.is_some());
     }
+    // The tray menu mirrors today's times (next one marked), refreshed each
+    // tick so the marker follows the passing prayers.
+    update_tray_prayers(handle, &prayer_menu_rows(payload, now));
 
     // Per-prayer alerts: each prayer's heads-up and adhan behavior are
     // configured independently.
@@ -197,7 +252,7 @@ fn tick(
                 AthanMode::Silent => notify_silent(handle, "Mawaqit", &at_time),
                 AthanMode::Default => notify(handle, "Mawaqit", &at_time),
                 AthanMode::Adhan => {
-                    notify(handle, "Mawaqit", &at_time);
+                    notify_stoppable(handle, "Mawaqit", &at_time);
                     let source = match &alerts.sound {
                         Some(path) => AthanSource::File(PathBuf::from(path)),
                         None => AthanSource::Builtin,
@@ -243,7 +298,30 @@ fn minutes_from_now(event: &str, n: u16) -> String {
     format!("{event} in {n} {unit}")
 }
 
+/// A plain popup notification (heads-up, iqama, Silent/Default adhan).
 fn notify(handle: &tauri::AppHandle, title: &str, body: &str) {
+    #[cfg(target_os = "linux")]
+    {
+        use notify_rust::Notification;
+        let _ = Notification::new()
+            .summary(title)
+            .body(body)
+            .icon(infrastructure::desktop::APP_ICON_NAME)
+            .timeout(notify_rust::Timeout::Milliseconds(60_000))
+            .show();
+        let _ = handle;
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    let _ = handle.notification().builder().title(title).body(body).show();
+}
+
+/// The adhan notification, with a click/button that stops a sounding athan.
+/// Linux: notify-rust "default" action (as before). Windows: a toast button
+/// (tauri-winrt-notification). macOS: a plain popup — action buttons need a
+/// signed UNUserNotificationCenter delegate, so the tray's "Stop athan
+/// sound" item stays the stop path there.
+fn notify_stoppable(handle: &tauri::AppHandle, title: &str, body: &str) {
     #[cfg(target_os = "linux")]
     {
         use notify_rust::Notification;
@@ -270,8 +348,25 @@ fn notify(handle: &tauri::AppHandle, title: &str, body: &str) {
         let _ = handle;
     }
 
-    #[cfg(not(target_os = "linux"))]
-    let _ = handle.notification().builder().title(title).body(body).show();
+    #[cfg(target_os = "windows")]
+    {
+        let app_id = handle.config().identifier.clone();
+        let _ = tauri_winrt_notification::Toast::new(&app_id)
+            .title(title)
+            .text(body)
+            .add_button("Stop athan", "stop")
+            .on_activated(|action| {
+                if action.as_deref() == Some("stop") {
+                    infrastructure::audio::stop_athan();
+                }
+                Ok(())
+            })
+            .show();
+        let _ = handle;
+    }
+
+    #[cfg(target_os = "macos")]
+    notify(handle, title, body);
 }
 
 /// A "Silent" alert: popup notification without audio. A sound-suppression

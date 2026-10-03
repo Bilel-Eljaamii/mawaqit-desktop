@@ -27,7 +27,45 @@ fn time_string(t: NaiveTime) -> String {
 ///   value not used as a prayer time.
 /// Rows without the shuruq column are treated as plain prayer lists, with
 /// sunrise taken from the page-level `shuruq` field.
+/// Exactly `HH:MM` with in-range values — the display contract the red-team
+/// suite pins (F4). Lenient parses (`7:5`, leading spaces) are fine for
+/// internal time math, never for surfaced strings.
+pub(crate) fn is_displayable_hhmm(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() == 5
+        && b[2] == b':'
+        && b[..2].iter().all(|c| c.is_ascii_digit())
+        && b[3..].iter().all(|c| c.is_ascii_digit())
+        && s[..2].parse::<u8>().is_ok_and(|h| h < 24)
+        && s[3..].parse::<u8>().is_ok_and(|m| m < 60)
+}
+
 pub(crate) fn daily_from_row(
+    row: &[String],
+    conf_shuruq: Option<&str>,
+) -> Result<DailyPrayerTimes> {
+    let times = build_daily_times(row, conf_shuruq)?;
+    // FINDING F4: a surfaced time must be strict HH:MM. A row carrying a
+    // hostile value ("25:70") is rejected whole — month_times drops the day,
+    // so the day errors out instead of showing fabricated times (the same
+    // semantic as layout-mismatched rows).
+    let fields = [
+        (&times.fajr, "fajr"),
+        (&times.shurouq, "shurouq"),
+        (&times.dhuhr, "dhuhr"),
+        (&times.asr, "asr"),
+        (&times.maghrib, "maghrib"),
+        (&times.isha, "isha"),
+    ];
+    if let Some((bad, name)) = fields.iter().find(|(t, _)| !is_displayable_hhmm(t)) {
+        return Err(MawaqitError::Parse(format!(
+            "calendar row surfaces invalid {name} time {bad:?} — day rejected"
+        )));
+    }
+    Ok(times)
+}
+
+fn build_daily_times(
     row: &[String],
     conf_shuruq: Option<&str>,
 ) -> Result<DailyPrayerTimes> {
@@ -103,7 +141,7 @@ pub(crate) fn resolve_iqama(raw: &str, adhan: &str) -> String {
             }
         }
     }
-    if parse_hhmm(raw).is_some() {
+    if is_displayable_hhmm(raw.trim()) {
         return raw.trim().to_string();
     }
     adhan.trim().to_string()
@@ -270,6 +308,32 @@ mod tests {
     fn rejects_short_day() {
         let raw: Vec<String> = vec!["06:30".into(), "08:00".into()];
         assert!(matches!(daily_from_row(&raw, None), Err(MawaqitError::Parse(_))));
+    }
+
+    #[test]
+    fn rejects_days_surfacing_invalid_times() {
+        // F4: a hostile value anywhere in the row rejects the whole day —
+        // month_times then drops it instead of surfacing fabricated times.
+        for bad in ["25:70", "99:99", "ab:cd", "7:5", "+30", "24:00"] {
+            let mut row: Vec<String> = ["06:30", "08:00", "13:00", "15:30", "17:45", "19:15"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
+            row[0] = bad.to_string();
+            assert!(
+                matches!(daily_from_row(&row, None), Err(MawaqitError::Parse(_))),
+                "row with fajr {bad:?} must be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn iqama_passthrough_cannot_smuggle_non_display_times() {
+        // "7:5" parses internally (chrono is lenient) but must never surface:
+        // the passthrough falls back to the adhan value like garbage does.
+        assert_eq!(resolve_iqama("7:5", "06:30"), "06:30");
+        assert_eq!(resolve_iqama("25:70", "06:30"), "06:30");
+        assert_eq!(resolve_iqama("06:45", "06:30"), "06:45");
     }
 
     #[test]

@@ -147,10 +147,11 @@ describe("parseHhmmToDate", () => {
     }
   });
 
-  test.fails("RED TEAM FINDING F4 (frontend): out-of-range times are rejected, not rolled over", () => {
-    // Today "25:70" silently becomes 02:10 two days ahead via Date
-    // rollover, so a hostile calendar can point the countdown at a made-up
-    // time. The secure contract: anything outside 00:00–23:59 is null.
+  it("RED TEAM FINDING F4 (frontend, fixed): out-of-range times are rejected, not rolled over", () => {
+    // Today "25:70" silently became 02:10 two days ahead via Date
+    // rollover, so a hostile calendar could point the countdown at a
+    // made-up time. The secure contract: anything outside 00:00–23:59 is
+    // null. (Fixed alongside the backend half in calendar.rs.)
     for (const t of ["25:70", "99:99", "24:00", "23:60"]) {
       expect(parseHhmmToDate(t)).toBeNull(`${t} must be rejected`);
     }

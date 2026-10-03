@@ -17,7 +17,15 @@ pub fn get_config() -> AppConfig {
 }
 
 #[tauri::command]
-pub fn update_config(config: AppConfig, client: State<MawaqitClient>) {
+pub fn update_config(config: AppConfig, client: State<MawaqitClient>) -> Result<(), String> {
+    // FINDING F2: a slug reaching the config file must be a real mosque page
+    // identifier — `../`, `?`/`#` or encoded variants never get persisted.
+    if !config.mosque_slug.is_empty() && !mawaqit_api::is_valid_slug(&config.mosque_slug) {
+        return Err(format!(
+            "invalid mosque id {:?} — search for the mosque again",
+            config.mosque_slug
+        ));
+    }
     // The legacy global switch stays in the file for downgrades; whatever the
     // caller sent, it must agree with the per-prayer settings that now rule.
     let mut config = config;
@@ -27,6 +35,7 @@ pub fn update_config(config: AppConfig, client: State<MawaqitClient>) {
         client.invalidate(Some(&previous.mosque_slug));
     }
     save_config(&config);
+    Ok(())
 }
 
 #[tauri::command]

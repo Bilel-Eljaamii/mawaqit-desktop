@@ -151,7 +151,16 @@ impl MawaqitClient {
     }
 
     async fn fetch_conf_data(inner: &Inner, mosque_id: &str) -> Result<Arc<ConfData>> {
-        let url = page_url(&inner.site_base, mosque_id);
+        // FINDING F2: an invalid slug is fetched as a deterministic
+        // placeholder under /en/ — it can never escape the mosque namespace
+        // (dot-segments, query/fragment injection, encoded variants) and
+        // always 404s into MosqueNotFound.
+        let slug = if is_valid_slug(mosque_id) {
+            mosque_id.to_string()
+        } else {
+            "-".repeat(mosque_id.len().clamp(4, 64))
+        };
+        let url = page_url(&inner.site_base, &slug);
         let response = inner.http.get(&url).send().await?;
 
         let status = response.status();
@@ -209,6 +218,21 @@ impl Default for MawaqitClient {
 /// non-ASCII slugs) can be asserted without touching the network.
 pub fn page_url(site_base: &str, mosque_id: &str) -> String {
     format!("{site_base}/{PAGE_LANG}/{mosque_id}")
+}
+
+/// Whether `slug` is a mosque page identifier in the shape mawaqit.net
+/// publishes (`grande-mosquee-de-paris`): lowercase letters and digits,
+/// single hyphens between segments. FINDING F2: anything else must never
+/// reach the network verbatim — `../` escapes the mosque namespace and
+/// `?`/`#` swap the page under a legit-looking slug.
+pub fn is_valid_slug(slug: &str) -> bool {
+    !slug.is_empty()
+        && slug
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        && !slug.starts_with('-')
+        && !slug.ends_with('-')
+        && !slug.contains("--")
 }
 
 /// Read a response body with a hard size cap so a hostile/huge response can

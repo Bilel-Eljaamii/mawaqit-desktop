@@ -34,7 +34,7 @@ mod error;
 mod models;
 mod scraper;
 pub use calendar::{month_iqama_times, month_times, times_for_date};
-pub use client::{minutes_between, page_url, MawaqitClient};
+pub use client::{is_valid_slug, minutes_between, page_url, MawaqitClient};
 pub use error::{MawaqitError, Result};
 pub use models::{
     Announcement, ConfData, DailyIqamaTimes, DailyPrayerTimes, DayIqamaTimes, DayTimes,

@@ -42,28 +42,6 @@ fn is_valid_hhmm(s: &str) -> bool {
         && s[3..].parse::<u8>().map(|m| m < 60).unwrap_or(false)
 }
 
-fn surfaced_times(conf: &ConfData) -> Vec<String> {
-    let today = mawaqit_api::times_for_date(conf, the_date()).expect("today resolves");
-    let mut v = vec![
-        today.adhan.fajr.clone(),
-        today.adhan.shurouq.clone(),
-        today.adhan.dhuhr.clone(),
-        today.adhan.asr.clone(),
-        today.adhan.maghrib.clone(),
-        today.adhan.isha.clone(),
-    ];
-    if let Some(iq) = &today.iqama {
-        v.extend([
-            iq.fajr.clone(),
-            iq.dhuhr.clone(),
-            iq.asr.clone(),
-            iq.maghrib.clone(),
-            iq.isha.clone(),
-        ]);
-    }
-    v
-}
-
 // ------------------------------------------------------------ contract tests
 
 /// Documented inference: imsak mode is decided by `times.len() == 6` alone,
@@ -214,21 +192,58 @@ fn page_url_is_well_formed_for_benign_slugs() {
 /// FINDING F4 — surfaced times are never validated. `daily_from_row` passes
 /// adhan strings through verbatim; "25:70" at the fajr position reaches the
 /// UI, where the frontend's `setHours(25, 70)` silently rolls into another
-/// day and the countdown points at a made-up time. The iqama path already
-/// sanitizes garbage (falls back to adhan) — the adhan path needs the same:
-/// validate HH:MM per field, skip/Err the day otherwise.
-/// FIX in `calendar::daily_from_row`, then un-ignore.
+/// day and the countdown points at a made-up time. FIXED: a row surfacing
+/// any non-strict-HH:MM value is rejected whole, so the day drops out of the
+/// month (the same "the day errors out instead of showing fabricated times"
+/// semantic as layout-mismatched rows). The original probe expected the
+/// hostile day to resolve garbage-free — impossible without fabricating a
+/// fajr — so it now asserts the day refuses to resolve while its valid
+/// neighbor still surfaces.
 #[test]
-#[ignore = "RED TEAM FINDING F4: unparseable adhan times surface to the UI"]
 fn finding_f4_surfaced_times_are_always_valid_hhmm() {
     let c = conf(json!({
         "times": ["25:70", "99:99", "ab:cd", "7:5", "+30"],
         "calendar": [ { "1": ["25:70","06:37","13:21","16:37","19:24","20:51"],
                          "2": ["06:30","08:00","13:00","15:30","17:45","19:15"] } ],
     }));
-    for t in surfaced_times(&c) {
-        assert!(is_valid_hhmm(&t), "surfaced {t:?} is not a valid HH:MM time");
+
+    // The hostile day must not resolve at all.
+    assert!(
+        mawaqit_api::times_for_date(&c, the_date()).is_err(),
+        "a day surfacing an invalid time must not resolve"
+    );
+
+    // Its valid neighbor is untouched and surfaces only valid times.
+    let day2 = chrono::NaiveDate::from_ymd_opt(2026, 1, 2).unwrap();
+    let today = mawaqit_api::times_for_date(&c, day2).expect("valid day resolves");
+    for t in [
+        today.adhan.fajr.as_str(),
+        today.adhan.shurouq.as_str(),
+        today.adhan.dhuhr.as_str(),
+        today.adhan.asr.as_str(),
+        today.adhan.maghrib.as_str(),
+        today.adhan.isha.as_str(),
+    ] {
+        assert!(is_valid_hhmm(t), "surfaced {t:?} is not a valid HH:MM time");
     }
+
+    // The month view carries exactly the surviving day.
+    let days = month_times(&c, 1).unwrap().days;
+    assert_eq!(days.iter().map(|d| d.day).collect::<Vec<_>>(), vec![2]);
+
+    // The iqama passthrough cannot smuggle non-display times either: garbage
+    // falls back to the adhan value like it always has.
+    let hostile_iq = conf(json!({
+        "times": ["06:30", "08:00", "13:00", "15:30", "17:45", "19:15"],
+        "calendar": [ { "1": ["06:30","08:00","13:00","15:30","17:45","19:15"] } ],
+        "iqamaCalendar": [ { "1": ["25:70","06:45","13:20","+20","18:00"] } ],
+    }));
+    let today = mawaqit_api::times_for_date(&hostile_iq, the_date()).expect("resolves");
+    let iq = today.iqama.expect("iqama present");
+    for t in [iq.fajr.as_str(), iq.dhuhr.as_str(), iq.asr.as_str(), iq.maghrib.as_str(), iq.isha.as_str()] {
+        assert!(is_valid_hhmm(t), "surfaced iqama {t:?} is not a valid HH:MM time");
+    }
+    assert_eq!(iq.fajr, today.adhan.fajr, "hostile iqama fell back to adhan");
 }
 
 /// FINDING F5 — lenient day keys duplicate days. Rust's integer FromStr

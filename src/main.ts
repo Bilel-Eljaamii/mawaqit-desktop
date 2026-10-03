@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -258,6 +259,10 @@ function tick(): void {
   if (!payload) return;
   const next = computeNextEvent();
   if (!next) return;
+
+  // Window title carries the countdown: visible in taskbar previews and
+  // alt-tab without opening anything.
+  document.title = `Mawaqit — ${next.label} in ${formatCountdown(next.at.getTime() - Date.now())}`;
 
   $("next-label").textContent = next.label.endsWith("iqama")
     ? "Next iqama"
@@ -526,6 +531,89 @@ async function refreshAthanButton(): Promise<void> {
 
 // ---- Boot & event wiring ----
 
+// ---- Quick-glance overlay (?glance) ----
+
+async function bootGlance(): Promise<void> {
+  document.body.classList.add("glance-mode");
+
+  const el = (cls: string, text?: string): HTMLDivElement => {
+    const node = document.createElement("div");
+    node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const mosque = el("glance-mosque", "Mawaqit");
+  const label = el("glance-label", "Next prayer");
+  const name = el("glance-name", "—");
+  const countdown = el("glance-countdown", "--:--");
+  const offline = el("glance-offline");
+  offline.hidden = true;
+  const rows = el("glance-rows");
+  document.body.replaceChildren(root(mosque, label, name, countdown, offline, rows));
+
+  const render = async (): Promise<void> => {
+    try {
+      payload = await invoke<TodayPayload | null>("get_today");
+    } catch {
+      payload = null;
+    }
+    if (!payload) {
+      mosque.textContent = "No data";
+      rows.replaceChildren();
+      return;
+    }
+    mosque.textContent = payload.mosque_name ?? config?.mosque_name ?? "Mawaqit";
+    offline.hidden = !payload.as_of;
+    if (payload.as_of) offline.textContent = `Offline · from ${payload.as_of}`;
+
+    const fajrLabel = payload.imsak_mode ? "Imsak" : "Fajr";
+    const lines: [string, string, string][] = [];
+    for (const { key, label: prayerLabel } of PRAYERS) {
+      const shown = key === "fajr" ? fajrLabel : prayerLabel;
+      const iq = payload.times.iqama
+        ? `iqama ${payload.times.iqama[key as keyof DailyIqamaTimes]}`
+        : "";
+      lines.push([shown, payload.times.adhan[key], iq]);
+      if (key === "fajr") {
+        lines.push(["Shurouq", payload.times.adhan.shurouq, ""]);
+      }
+    }
+    rows.replaceChildren(
+      ...lines.map(([prayerName, time, iq]) => {
+        const row = el("glance-row");
+        const left = el("glance-row-name", prayerName);
+        const right = el("glance-row-time", time);
+        if (iq) right.textContent = `${time}  ·  ${iq}`;
+        row.append(left, right);
+        return row;
+      }),
+    );
+  };
+
+  const tickGlance = (): void => {
+    if (!payload) return;
+    const next = computeNextEvent();
+    if (!next) return;
+    name.textContent = next.label;
+    countdown.textContent = formatCountdown(next.at.getTime() - Date.now());
+  };
+
+  await render();
+  tickGlance();
+  window.setInterval(tickGlance, 1000);
+  window.setInterval(() => void render(), 60_000);
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") void getCurrentWindow().hide();
+  });
+}
+
+function root(...children: HTMLElement[]): HTMLDivElement {
+  const root = document.createElement("div");
+  root.id = "glance";
+  root.append(...children);
+  return root;
+}
+
 async function boot(): Promise<void> {
   try {
     await loadConfig();
@@ -546,6 +634,13 @@ async function boot(): Promise<void> {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // The quick-glance overlay (?glance) renders its own compact view and
+  // shares nothing with the main app's DOM wiring below.
+  if (new URLSearchParams(location.search).has("glance")) {
+    void bootGlance();
+    return;
+  }
+
   boot();
 
   $("tab-today").addEventListener("click", () => showView("today"));

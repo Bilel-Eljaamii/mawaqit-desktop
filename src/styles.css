@@ -800,6 +800,92 @@ input[type="checkbox"].switch:disabled {
   margin: 8px 0 0;
 }
 
+/* ---------- Quick-glance overlay (?glance) ---------- */
+
+body.glance-mode {
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% -20%, #262b30 0%, transparent 55%),
+    var(--bg);
+}
+
+#glance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 18px 22px;
+}
+
+.glance-mosque {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.glance-label {
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.66rem;
+  color: var(--text-soft);
+}
+
+.glance-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.glance-countdown {
+  font-size: 2.5rem;
+  font-weight: 300;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+
+.glance-offline {
+  width: fit-content;
+  font-size: 0.72rem;
+  color: var(--text-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 6px;
+}
+
+.glance-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.glance-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.95rem;
+}
+
+.glance-row-name {
+  color: var(--text-soft);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+}
+
+.glance-row-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 /* ---------- Toast ---------- */
 #toast {
   position: fixed;

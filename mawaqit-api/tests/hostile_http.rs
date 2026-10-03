@@ -364,7 +364,6 @@ async fn finding_f1_cross_origin_redirect_is_not_followed() {
 /// FIX: validate the slug once (e.g. `^[a-z0-9]+(-[a-z0-9]+)*$`) at the
 /// `Mosque::mosque_id` boundary and in `update_config`, then un-ignore.
 #[tokio::test]
-#[ignore = "RED TEAM FINDING F2: hostile slugs are fetched verbatim"]
 async fn finding_f2_hostile_slug_never_leaves_the_mosque_namespace() {
     let hostile_slugs = [
         "../trap",      // dot-segment traversal

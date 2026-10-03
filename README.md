@@ -35,6 +35,10 @@ published to crates.io from here when there is demand
 
 - **Keyless** — uses mawaqit.net's public mosque-search endpoint and the data embedded in each
   mosque's public page. No login, no API key, nothing personal stored or sent.
+- **Quick glance anywhere** — a global shortcut (`Ctrl+Alt+P`) pops a compact
+  frameless overlay with today's times and the live countdown; it dismisses
+  itself on focus loss. The tray menu also lists today's times (next prayer
+  marked), and the window title carries the countdown for alt-tab/taskbar.
 - **Works offline** — every successful fetch stores a snapshot of the mosque's whole year
   (adhan + iqama calendars) in the app config directory; when the network is down the app
   serves the snapshot, keeps the alarms and shows an "Offline — times from …" badge (the tray
@@ -43,7 +47,8 @@ published to crates.io from here when there is demand
   approaches) and a tooltip with the exact time; the badge gets out of the way when the next
   prayer is more than an hour and a half away.
 - **Athan with manual stop** — at adhan time: desktop notification + athan audio. Stop it from the
-  tray menu, from the notification itself (click it), or from the button that appears in the app.
+  tray menu, from the button that appears in the app, or from the notification itself (click or
+  button on Linux and Windows; on macOS the tray item is the stop path).
 - **Optional iqama alerts** — notifications when each iqama starts; the tray then counts down to
   iqama instead of adhan.
 - **Native UI** — today view with live countdown and per-prayer cards (adhan + iqama), month

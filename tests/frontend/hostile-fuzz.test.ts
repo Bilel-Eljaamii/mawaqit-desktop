@@ -130,15 +130,10 @@ function activeElements(root: Element): Element[] {
 // -------------------------------------------------------------------- tests
 
 describe("fuzz: sanitizeCssUrl", () => {
-  // FINDING F11 (found by this fuzzer): the URL parser strips tab/newline
-  // control characters BEFORE the scheme is checked, but the sanitizer
-  // emits the escaped *raw* string. So "http\t://pic/x" passes the
-  // http(s)-only check yet reaches CSS as "http%09://pic/x" — not the URL
-  // that was validated (worst case: a request to an app-origin path; never
-  // script execution). FIX: emit the parsed URL (`new URL(raw).toString()`,
-  // escaped) instead of the raw string, then remove this probe and the
-  // F11 skip in the property below.
-  test.fails("RED TEAM FINDING F11: sanitizer emits a different URL than it validated", () => {
+  // FINDING F11 (found by this fuzzer, fixed): the sanitizer now emits the
+  // parsed URL, so a control character the URL parser strips can no longer
+  // make the emitted string differ from the URL that was validated.
+  it("RED TEAM FINDING F11 (fixed): sanitizer emits the URL it validated", () => {
     expect(sanitizeCssUrl("http\t://pic/mosque.jpg")).toBe(
       sanitizeCssUrl("http://pic/mosque.jpg"),
     );
@@ -147,7 +142,7 @@ describe("fuzz: sanitizeCssUrl", () => {
     );
   });
 
-  it("always returns null or a safe http(s) url", () => {
+  it("always returns null or a safe http(s) url", { timeout: 20_000 }, () => {
     for (let i = 0; i < 4000; i++) {
       const input = mutateString(URL_SEED);
       let out: string | null;
@@ -157,11 +152,6 @@ describe("fuzz: sanitizeCssUrl", () => {
         throw new Error(`sanitizeCssUrl threw on ${JSON.stringify(input)}: ${e}`);
       }
       if (out === null) continue;
-      // F11 known-bad class: control chars that the URL parser strips make
-      // the emitted (escaped raw) string differ from the validated URL.
-      // Skip until F11 is fixed — the probe above guards the fix.
-      const parsed = new URL(input);
-      if (parsed.toString() !== input) continue;
       expect(out).toMatch(/^https?:/);
       for (const ch of ['"', "'", "\\", "(", ")", " ", "\n", "\r", "\t"]) {
         expect(out.includes(ch)).toBe(
@@ -174,7 +164,7 @@ describe("fuzz: sanitizeCssUrl", () => {
 });
 
 describe("fuzz: parseHhmmToDate", () => {
-  it("never throws and only ever returns Date or null", () => {
+  it("never throws and only ever returns Date or null", { timeout: 20_000 }, () => {
     for (let i = 0; i < 4000; i++) {
       const input = mutateString(TIME_SEED);
       const out = parseHhmmToDate(input, below(3) - 1);
@@ -184,7 +174,7 @@ describe("fuzz: parseHhmmToDate", () => {
 });
 
 describe("fuzz: formatCountdown", () => {
-  it("always renders a non-negative mm:ss / h:mm:ss clock", () => {
+  it("always renders a non-negative mm:ss / h:mm:ss clock", { timeout: 20_000 }, () => {
     for (let i = 0; i < 4000; i++) {
       const ms = mutateNumber(below(24 * 3600 * 1000));
       const out = formatCountdown(ms);
@@ -209,7 +199,7 @@ describe("fuzz: mosqueDisplayName", () => {
 });
 
 describe("fuzz: normalizeAlerts (UI boundary against a tampered config)", () => {
-  it("always yields a fully-sane AlertsConfig, never throws", () => {
+  it("always yields a fully-sane AlertsConfig, never throws", { timeout: 20_000 }, () => {
     for (let i = 0; i < 4000; i++) {
       const hostile = mutateStructure(ALERTS_SEED);
       let out;

@@ -62,9 +62,9 @@ Fix the code, un-ignore the test, and it becomes the regression guard.
 | ID | Severity | Finding | Probe |
 |---|---|---|---|
 | F1 | High | **Cross-origin redirects are followed.** One open redirect (or a compromise) on mawaqit.net turns `conf_data` into "parse whatever the redirect target serves" — attacker-authored prayer times, mosque name and image URL on the user's screen. Fix: pin `reqwest`'s redirect policy to same-host (or `Policy::none`). | `hostile_http::finding_f1_cross_origin_redirect_is_not_followed` |
-| F2 | High | **Slugs are never validated.** Search-result slugs flow verbatim: search → `update_config` → config file → `https://mawaqit.net/en/{slug}`. `../` escapes the mosque namespace (verified: `../trap` requests `/trap` and its content is served as the mosque), `?`/`#` swap the page under a legit-looking slug, and a tampered config file persists any of it forever. Fix: validate once at the `Mosque::mosque_id()` boundary and in `update_config` (e.g. `^[a-z0-9]+(-[a-z0-9]+)*$`). | `hostile_http::finding_f2_…`, `config::tests::hostile_slug_…` (documents current verbatim loading) |
+| F2 | High | **Slugs are never validated.** Search-result slugs flow verbatim: search → `update_config` → config file → `https://mawaqit.net/en/{slug}`. `../` escapes the mosque namespace (verified: `../trap` requests `/trap` and its content is served as the mosque), `?`/`#` swap the page under a legit-looking slug, and a tampered config file persists any of it forever. Fix: validate once at the `Mosque::mosque_id()` boundary and in `update_config` (e.g. `^[a-z0-9]+(-[a-z0-9]+)*$`). **FIXED in v0.4.0**: `mawaqit_api::is_valid_slug` gates `update_config` (invalid slugs are rejected over IPC), and the client fetches invalid slugs only as a deterministic `-`-placeholder path that always 404s — a hostile slug can never leave the namespace nor serve attacker content. Probe always-run and green. | `hostile_http::finding_f2_…` (always-run) |
 | F3 | Medium | **The 20 MB cap buffers before it checks.** `read_capped` calls `response.bytes()`, which downloads the whole body first — a hostile server streaming gigabytes OOMs the app before the cap trips. Fix: stream via `bytes_stream()` and abort once the running total exceeds the cap. | `hostile_http::finding_f3_documented_cap_…` (passes; documents the cap) |
-| F4 | Medium | **Adhan times are never validated.** `daily_from_row` passes strings through: `"25:70"` reaches the UI and the frontend `setHours(25, 70)` rolls it into another day, pointing the countdown at a made-up time. The iqama path already falls back to the adhan on garbage — give the adhan path the same treatment. | `hostile_semantics::finding_f4_…`, vitest `F4 (frontend)` |
+| F4 | Medium | **Adhan times are never validated.** `daily_from_row` passes strings through: `"25:70"` reaches the UI and the frontend `setHours(25, 70)` rolls it into another day, pointing the countdown at a made-up time. The iqama path already falls back to the adhan on garbage — give the adhan path the same treatment. **FIXED in v0.4.0**: `daily_from_row` validates every surfaced field strict-HH:MM and rejects the whole day (month view drops it — the "day errors out" semantic); the iqama passthrough falls back to adhan for non-display shapes too; the frontend `parseHhmmToDate` enforces ranges. Probes always-run and green (the Rust probe was adjusted: an unresolvable day must refuse to resolve, not resolve garbage-free). | `hostile_semantics::finding_f4_…` (always-run), vitest `F4 (frontend)` |
 | F5 | Low | **Duplicate day keys are not deduplicated.** Rust's integer parse accepts `"01"` and `"+1"`, so a hostile month with `1`/`01`/`+1` yields day 1 three times; `times_for_date` silently picks whichever sorts first. Fix: dedupe by parsed day in `month_times`. | `hostile_semantics::finding_f5_…` |
 | F6 | Low | **Control/bidi characters reach display strings.** `U+202E` and friends flow into the window title, tray tooltip and OS notifications (`Mawaqit: <name>`), enabling visual spoofing of app state. Fix: strip C0/C1 + bidi controls at the `ConfData` boundary. | `hostile_semantics::finding_f6_…` |
 | F7 | — | **CSP was null.** Fixed during this engagement (a real policy now exists in `tauri.conf.json`); the former finding test is now the always-run contract `config_hardening::csp_is_configured`. | — |
@@ -78,6 +78,16 @@ granted but the frontend never calls it — consider dropping the dependency to
 shrink the IPC surface. Search results are rendered unbounded: a hostile
 response with tens of thousands of entries renders that many `<li>` elements
 (bounded by the 20 MB cap, so this is a sluggishness, not a crash).
+
+Since v0.4.0 there is a second webview (the `?glance` quick-glance overlay):
+it renders the same IPC data through the same textContent-only rules and is
+capability-covered like `main` — no new IPC surface beyond what `main` already
+calls. The tray menu's disabled prayer-time lines are Rust-side strings only.
+The in-tree mutation fuzzer (`tests/frontend/hostile-fuzz.test.ts`, added
+2026-10-02) found F11: `sanitizeCssUrl` validated one URL but emitted an
+escaped copy of the *raw* string, so control characters the URL parser strips
+could make CSS fetch a different URL than the one validated — fixed by
+emitting the parsed URL.
 
 Since v0.2.0 the per-prayer alerts config can name a `sound` path on disk;
 a tampered config file can therefore make the app play any local mp3/wav as
