@@ -144,3 +144,9 @@ Notes.md
 bundle.json
 .zcodeignore
 .gitnexus/
+
+# Ruflo local secrets and runtime data
+.claude-flow/data/
+.claude-flow/logs/
+.claude-flow/sessions/
+CLAUDE.md.pre-ruflo
