@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #080808;
   --bg-panel: #1b1e21;
   --card: rgba(0, 0, 0, 0.6);
@@ -752,10 +753,14 @@ input:focus {
 .select {
   flex: 1;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 8px 30px 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  appearance: none;
+  background-color: var(--card-solid);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23bdbbbb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
   color: var(--text);
   font-size: 0.92rem;
   outline: none;
@@ -763,6 +768,11 @@ input:focus {
 
 .select:focus {
   border-color: var(--accent);
+}
+
+.select option {
+  background-color: var(--bg-panel);
+  color: var(--text);
 }
 
 .sound-path {

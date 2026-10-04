@@ -35,5 +35,5 @@ jobs:
         run: |
           cargo test --workspace
           cargo clippy --workspace
-      # The mawaqit-api crate lives in its own repository and runs its own
-      # suites there; this workspace only tests the desktop app.
+      # `cargo test --workspace` covers the mawaqit-api crate too — the
+      # monorepo keeps everything together, including its hostile/fuzz suites.
