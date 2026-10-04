@@ -150,4 +150,4 @@ CLAUDE.md.pre-ruflo
 mawaqit-api/fuzz/
 
 # Large presentation binary — kept locally, never shipped to GitHub
-docs/presentations/mawaqit-desktop.pptx
+docs/presentations/*.pptx
