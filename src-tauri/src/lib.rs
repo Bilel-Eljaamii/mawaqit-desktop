@@ -80,6 +80,28 @@ pub fn run() {
 
             setup_tray(app.handle())?;
 
+            // Quick-glance shortcut, registered at runtime: a failure
+            // (another app already owns Ctrl+Alt+P, a second instance)
+            // degrades to "no shortcut" — it must never abort the app.
+            {
+                use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+                if let Err(e) = app.global_shortcut().on_shortcut(
+                    "ctrl+alt+p",
+                    |app, _shortcut, event| {
+                        if event.state == ShortcutState::Pressed {
+                            toggle_glance(app);
+                        }
+                    },
+                ) {
+                    eprintln!("quick-glance shortcut unavailable: {e}");
+                }
+            }
+
+            // Park the glance overlay at the screen edge nearest the tray.
+            if let Some(glance) = app.get_webview_window("glance") {
+                position_glance(&glance);
+            }
+
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 background_loop(handle, client).await;

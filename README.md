@@ -40,7 +40,8 @@ mawaqit-api = { version = "0.2.0", path = "../../mawaqit-api" }
   frameless overlay with today's times and the live countdown; it dismisses
   itself on focus loss, with Escape or its own close button (a shortcut that
   can't be registered — another app owning it — degrades to no shortcut,
-  never blocks the app). The tray menu also lists today's times (next prayer
+  never blocks the app). The tray menu and the settings dialog show the app
+  version. The tray menu also lists today's times (next prayer
   marked), and the window title carries the countdown for alt-tab/taskbar.
 - **Works offline** — every successful fetch stores a snapshot of the mosque's whole year
   (adhan + iqama calendars) in the app config directory; when the network is down the app
