@@ -3,9 +3,6 @@
 # ------------------------------------------------------------------------------
 node_modules/
 jspm_packages/
-mawaqit-api/fuzz/target/
-mawaqit-api/fuzz/artifacts/
-mawaqit-api/fuzz/corpus/
 .npm/
 
 # ------------------------------------------------------------------------------
@@ -150,3 +147,4 @@ bundle.json
 .claude-flow/logs/
 .claude-flow/sessions/
 CLAUDE.md.pre-ruflo
+mawaqit-api/fuzz/
