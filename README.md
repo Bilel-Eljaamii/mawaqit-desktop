@@ -9,28 +9,25 @@ adhan starts, plays the athan, and can remind you at iqama time too.
 
 ## Repository layout
 
-This is a **single-repo Cargo workspace** on purpose: the app and its client
-library evolve in lockstep, and one commit can carry a parser fix together
-with the tests that prove it. `mawaqit-api` keeps clean crate metadata, so
-publishing it to crates.io later needs no repository split.
+Two repositories, by design: this app repo, and the
+**[mawaqit-api](../mawaqit-api)** client library — split out so the community
+can build their own apps on the same keyless data layer (and so the library
+can be published to crates.io on its own cadence). The app imports it as a
+path dependency pinned to the library's version:
+
+```toml
+mawaqit-api = { version = "0.2.0", path = "../../mawaqit-api" }
+```
 
 | Path | What it is |
 |---|---|
 | `src/`, `index.html` | Frontend (vanilla TypeScript + Vite), rendered by Tauri |
 | `src-tauri/` | Desktop app crate (domain / application / infrastructure / presentation) |
-| `mawaqit-api/` | Keyless Rust client library for mawaqit.net (reusable, MIT) |
+| `../mawaqit-api` | Keyless Rust client library for mawaqit.net (separate repo: src, hostile suites, fuzz, examples) |
 | *(topbar)* | 🕌 switch mosque · 🔔 per-prayer notifications · ✉ mosque announcements (unread badge) · ⚙ settings |
-| `mawaqit-api/fuzz/` | libFuzzer targets + corpus for the page parser (own workspace, nightly) |
 | `tests/frontend/` | Vitest hostile-rendering suite |
 | `docs/` | Product material (deck, design notes) |
 | `scripts/` | Build helpers (cross-compile wrappers) |
-
-## Repository structure decision
-
-One repo, not two: a parser fix and the app tests that pin it land atomically,
-there is no version dance between crates, and `mawaqit-api` can still be
-published to crates.io from here when there is demand
-(`mawaqit-api = { version = "0.3", path = "mawaqit-api" }`).
 
 ## Features
 
@@ -123,9 +120,11 @@ The onboarding screen asks for one thing: find your mosque (type a city or name,
 results). Everything else — tray, alerts, autostart, athan sound, iqama notifications — is in the
 gear-icon settings.
 
-## The `mawaqit-api` crate
+## The `mawaqit-api` library
 
-All mawaqit.net access lives in a standalone workspace crate, reusable without the desktop app:
+All mawaqit.net access lives in the separate `mawaqit-api` repository
+(clone it as a sibling of this repo: `~/Workspace/mawaqit-api`), reusable
+without the desktop app:
 
 ```rust
 use mawaqit_api::MawaqitClient;
@@ -142,21 +141,22 @@ println!("Fajr {} (iqama {})", today.adhan.fajr,
 Handy CLI check for any mosque (prints exactly what the client fetches):
 
 ```sh
-cargo run -p mawaqit-api --example times -- grande-mosquee-de-paris
+cd ../mawaqit-api && cargo run --example times -- grande-mosquee-de-paris
 ```
 
 ## Testing
 
 ```sh
-cargo test --workspace            # Rust: unit + adversarial-corpus + mock-server tests (offline)
+# App repo — Rust (desktop) + frontend tests:
+cargo test --workspace            # desktop crate: unit + adversarial + mock-server tests (offline)
 pnpm test                         # frontend tests (vitest)
 
-# Live checks (hit mawaqit.net, ignored by default):
-cargo test -p mawaqit-api -- --ignored --nocapture                       # one mosque, end to end
-cargo test -p mawaqit-api --test world_hostile -- --ignored --nocapture  # 131 mosques, 5 continents
+# Library repo — its own full hostile suite (offline):
+cd ../mawaqit-api && cargo test
 
-# Fuzzing (libFuzzer via cargo-fuzz, nightly):
-cd mawaqit-api/fuzz && RUSTC_WRAPPER= cargo +nightly fuzz run parse_page -- -max_total_time=90
+# Live checks (hit mawaqit.net, ignored by default, run in the library repo):
+cargo test -- --ignored --nocapture                                   # one mosque, end to end
+cargo test --test world_hostile -- --ignored --nocapture              # 131 mosques, 5 continents
 ```
 
 The world tour asserts structural invariants for every mosque (valid times, complete calendars,

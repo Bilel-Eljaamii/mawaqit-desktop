@@ -84,7 +84,6 @@ fn capabilities_stay_minimal() {
         .collect();
     for allowed in [
         "core:default",
-        "opener:default",
         "autostart:allow-enable",
         "autostart:allow-disable",
         "autostart:allow-is-enabled",
@@ -98,7 +97,7 @@ fn capabilities_stay_minimal() {
         );
     }
     assert!(
-        permissions.len() <= 6,
+        permissions.len() <= 5,
         "new permissions appeared: {permissions:?} — justify each one against hostile webview content"
     );
 }

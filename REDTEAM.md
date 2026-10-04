@@ -31,8 +31,13 @@ cargo test -p mawaqit-api --test world_hostile -- --ignored --nocapture
 
 ## Suite map
 
+> 2026-10-04: the mawaqit-api crate moved to its own repository
+> (`~/Workspace/mawaqit-api`). Its hostile suites (hostile_http,
+> hostile_semantics, hostile_corpus, hostile_fuzz, world_hostile,
+> disk_cache) live there now and run with `cargo test` in that repo.
+
 | File | Layer | What it attacks |
-|---|---|---|
+|---|---|--- |
 | `mawaqit-api/tests/hostile_http.rs` | HTTP client | crafted server responses: garbage/oversized/non-UTF8 bodies, redirects, truncation, hostile slugs, CRLF in search words |
 | `mawaqit-api/tests/hostile_semantics.rs` | parser + calendar | valid JSON that lies: out-of-range times, duplicate day keys, layout confusion, display-field spoofing |
 | `mawaqit-api/tests/hostile_corpus.rs` | parser | byte-level torture of the confData extraction (pre-existing) |

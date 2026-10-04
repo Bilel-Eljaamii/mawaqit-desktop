@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["mawaqit-api", "src-tauri"]
+members = ["src-tauri"]
 
 [profile.release]
 strip = true
