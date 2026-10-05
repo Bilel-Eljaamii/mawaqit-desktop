@@ -93,6 +93,21 @@ fn spawn_audio_thread() -> Sender<Command> {
                         Err(e) => {
                             eprintln!("{e}");
                             PLAYING.store(false, Ordering::SeqCst);
+                            // A cached voice file that fails to decode must
+                            // never silence the adhan: drop the corrupt file
+                            // and retry once with the builtin recording.
+                            if let AthanSource::File(path) = &source {
+                                let _ = std::fs::remove_file(path);
+                                match play_once(&mixer, &AthanSource::Builtin, volume) {
+                                    Ok(sink) => {
+                                        current = Some(sink);
+                                        PLAYING.store(true, Ordering::SeqCst);
+                                    }
+                                    Err(builtin_err) => {
+                                        eprintln!("builtin athan fallback failed: {builtin_err}");
+                                    }
+                                }
+                            }
                         }
                     }
                 }
