@@ -112,3 +112,13 @@ describe("stylesheet hidden-guard (regression: unclosable announce dialog)", () 
     expect(css).toMatch(/\[hidden\]\s*\{[^}]*display:\s*none\s*!important[^}]*\}/);
   });
 });
+
+describe("pruneRead branch coverage (cap edge)", () => {
+  it("keeps order and caps at MAX_READ_ENTRIES when pruning a huge list", () => {
+    const items = Array.from({ length: 600 }, (_, i) => item(`a${i}`));
+    const read = items.map((a) => a.id);
+    const kept = pruneRead(items, read);
+    expect(kept).toHaveLength(MAX_READ_ENTRIES);
+    expect(kept[0]).toBe("a100"); // oldest 100 dropped
+  });
+});

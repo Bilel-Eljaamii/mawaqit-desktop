@@ -29,17 +29,23 @@ lint:
     cargo clippy --workspace
     pnpm check
 
-# Backend coverage (HTML + terminal). Needs cargo-llvm-cov:
-#   cargo install cargo-llvm-cov
+# Backend coverage — terminal summary + gate at 60% lines (issue #3).
+# lib.rs/main.rs are Tauri runtime wiring: compile-checked + manual, held
+# out of the unit-test denominator. HTML: `just coverage-backend-html`.
 coverage-backend:
+    cargo llvm-cov --workspace --summary-only --fail-under-lines 60
+
+# Backend coverage HTML report
+coverage-backend-html:
     cargo llvm-cov --workspace --html
     @echo "HTML report: target/llvm-cov/html/index.html"
 
-# Frontend coverage (v8 provider, terminal + lcov in coverage/)
+# Frontend coverage — terminal table + lcov/html in coverage/frontend.
+# Thresholds (lines/functions/branches 90/95/90 on src/lib) fail below the bar.
 coverage-frontend:
     pnpm vitest run --coverage
 
-# Both coverage reports
+# Both coverage reports (terminal) + backend gate
 coverage: coverage-backend coverage-frontend
     @echo "coverage done"
 

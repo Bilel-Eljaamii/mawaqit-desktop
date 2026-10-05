@@ -244,3 +244,10 @@ describe("renderResults with hostile mosque entries", () => {
     expect(activeElements(list)).toEqual([]);
   });
 });
+
+describe("parseHhmmToDate branch edges", () => {
+  it("single-digit hour is rejected (strict HH:MM contract)", () => {
+    expect(parseHhmmToDate("7:05")).toBeNull();
+    expect(parseHhmmToDate("07:5")).toBeNull();
+  });
+});

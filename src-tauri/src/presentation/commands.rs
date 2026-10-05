@@ -27,59 +27,10 @@ pub fn update_config(
     config: AppConfig,
     client: State<ClientHolder>,
 ) -> Result<(), String> {
-    // FINDING F2: a slug reaching the config file must be a real mosque page
-    // identifier — `../`, `?`/`#` or encoded variants never get persisted.
-    if !config.mosque_slug.is_empty() && !mawaqit_api::is_valid_slug(&config.mosque_slug)
-    {
-        return Err(format!(
-            "invalid mosque id {:?} — search for the mosque again",
-            config.mosque_slug
-        ));
-    }
-    // Tor opt-in: the host and port must be plausible for the socks5h URL
-    // the domain value object builds; the strict enforcement (remote-DNS
-    // scheme, reachability) lives in the api at client construction.
-    if config.tor.enabled {
-        if !is_plausible_tor_host(&config.tor.host) {
-            return Err(format!(
-                "invalid Tor proxy host {:?}",
-                config.tor.host
-            ));
-        }
-        if config.tor.port == 0 {
-            return Err("invalid Tor proxy port 0 — use 1–65535".into());
-        }
-    }
-    // Voice ids are catalog keys: a known id resolves to a CDN URL; an
-    // unknown one would silently never play, so reject it at save time.
-    for voice in [
-        &config.alerts.fajr.voice,
-        &config.alerts.dhuhr.voice,
-        &config.alerts.asr.voice,
-        &config.alerts.maghrib.voice,
-        &config.alerts.isha.voice,
-    ]
-    .into_iter()
-    .flatten()
-    {
-        if mawaqit_api::voices::adhan_voice_url(voice).is_none() {
-            return Err(format!("unknown adhan voice {voice:?}"));
-        }
-    }
-    // The legacy global switch stays in the file for downgrades; whatever the
-    // caller sent, it must agree with the per-prayer settings that now rule.
-    let mut config = config;
-    config.sound_enabled = config.alerts.any_adhan();
     let previous = load_config();
-    if previous.mosque_slug != config.mosque_slug {
-        client.current().invalidate(Some(&previous.mosque_slug));
-    }
-    // A changed Tor policy swaps the transport immediately — the toggle and
-    // the settings fields apply without a restart.
-    if previous.tor != config.tor {
-        rebuild_client(&client, &config);
-    }
-    save_config(&config);
+    let validated =
+        crate::application::settings::validate_and_apply_update(&client, &previous, config)?;
+    save_config(&validated);
     Ok(())
 }
 
@@ -127,13 +78,9 @@ fn offline_conf_from(
 /// the next view serves from the newly chosen source, not a stale copy.
 #[tauri::command]
 pub fn set_offline_mode(on: bool, client: State<ClientHolder>) -> Result<(), String> {
-    let client = client.current();
-    let mut config = load_config();
-    if config.offline_mode != on {
-        config.offline_mode = on;
-        client.invalidate(None);
-        save_config(&config);
-    }
+    let previous = load_config();
+    let config = crate::application::settings::set_offline(&client, &previous, on);
+    save_config(&config);
     Ok(())
 }
 
@@ -142,18 +89,10 @@ pub fn set_offline_mode(on: bool, client: State<ClientHolder>) -> Result<(), Str
 /// it. Fails when Tor is switched on without a plausible host.
 #[tauri::command]
 pub fn set_tor_enabled(on: bool, client: State<ClientHolder>) -> Result<bool, String> {
-    let mut config = load_config();
-    if on && !is_plausible_tor_host(&config.tor.host) {
-        return Err(
-            "Cannot enable Tor — set a valid proxy host in Settings first.".into(),
-        );
-    }
-    if config.tor.enabled != on {
-        config.tor.enabled = on;
-        rebuild_client(&client, &config);
-        save_config(&config);
-    }
-    Ok(on)
+    let previous = load_config();
+    let config = crate::application::settings::set_tor(&client, &previous, on)?;
+    save_config(&config);
+    Ok(config.tor.enabled)
 }
 
 /// Today's times + mosque metadata for the Today view.
