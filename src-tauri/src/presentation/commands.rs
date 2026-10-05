@@ -209,21 +209,33 @@ pub fn athan_playing() -> bool {
     audio::is_playing()
 }
 
-/// Play the athan on demand (notification panel's preview button). A
-/// `voice_id` that is already cached beats a custom file path; an uncached
-/// voice previews as the built-in athan (the download starts separately
-/// from the panel). `sound` is a custom audio file path, or empty/null for
-/// the built-in athan; `volume` is 0–100 percent.
+/// Play the athan on demand (notification panel's preview button). An
+/// uncached catalog voice is **downloaded first** (issue #2: previews of
+/// not-yet-downloaded voices used to all fall back to the builtin); on
+/// download failure it falls back to the builtin. `sound` is a custom
+/// audio file path used when no voice is set; `volume` is 0–100 percent.
 #[tauri::command]
-pub fn preview_athan(
+pub async fn preview_athan(
+    client: State<'_, ClientHolder>,
     sound: Option<String>,
     voice_id: Option<String>,
     volume: Option<u8>,
-) -> bool {
-    let voice_file = voice_id
-        .as_deref()
-        .map(|id| crate::infrastructure::config::voices_dir().join(format!("{id}.mp3")))
-        .filter(|p| p.is_file());
+) -> Result<bool, String> {
+    let voice_file = match voice_id.as_deref() {
+        Some(id) => {
+            let dir = crate::infrastructure::config::voices_dir();
+            match mawaqit_api::voices::download_voice(&client.current(), id, &dir).await
+            {
+                Ok(path) => Some(path),
+                // Download failed (offline/CDN down): builtin fallback.
+                Err(e) => {
+                    eprintln!("voice preview download failed ({id}): {e}");
+                    None
+                }
+            }
+        }
+        None => None,
+    };
     let source = match voice_file {
         Some(path) => audio::AthanSource::File(path),
         None => match sound.as_deref() {
@@ -233,7 +245,7 @@ pub fn preview_athan(
             _ => audio::AthanSource::Builtin,
         },
     };
-    audio::play_athan(source, volume)
+    Ok(audio::play_athan(source, volume))
 }
 
 /// Whether a catalog voice is already downloaded (drives the sheet's
