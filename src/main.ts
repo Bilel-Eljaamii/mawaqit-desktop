@@ -41,8 +41,8 @@ interface AppConfig {
   autostart: boolean;
   /** Serve saved (snapshot) times only; never touch the network for data. */
   offline_mode: boolean;
-  /** Tor/SOCKS5 proxy (socks5h://host[:port]); null = direct connection. */
-  tor_socks_addr: string | null;
+  /** Tor transport policy: route mawaqit.net through socks5h://host:port. */
+  tor: { enabled: boolean; host: string; port: number };
   alerts: AlertsConfig;
   /** Ids of mosque announcements the user has read (capped backend-side). */
   announcements_read: string[];
@@ -115,7 +115,7 @@ const DEFAULT_CONFIG: AppConfig = {
   iqama_alerts: false,
   autostart: true,
   offline_mode: false,
-  tor_socks_addr: null,
+  tor: { enabled: false, host: "127.0.0.1", port: 9050 },
   alerts: defaultAlerts(),
   announcements_read: [],
 };
@@ -311,6 +311,18 @@ async function loadToday(): Promise<void> {
   payload = await invoke<TodayPayload | null>("get_today");
   renderToday();
   refreshAnnounceBadge();
+  syncTorButton();
+}
+
+function syncTorButton(): void {
+  const btn = $("tor-btn");
+  if (!btn) return;
+  const on = config?.tor.enabled ?? false;
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", String(on));
+  btn.title = on
+    ? `Tor on — socks5h://${config?.tor.host}:${config?.tor.port} (click to turn off)`
+    : "Tor off (click to route mawaqit.net through Tor)";
 }
 
 // ---- Online / offline toggle ----
@@ -412,10 +424,13 @@ async function pickOnboardingMosque(mosque: Mosque): Promise<void> {
 function openSettings(): void {
   if (!config) return;
   const tor = ($("set-tor") as HTMLInputElement);
-  const torAddr = $("set-tor-addr") as HTMLInputElement;
-  tor.checked = config.tor_socks_addr !== null;
-  torAddr.value = config.tor_socks_addr ?? "";
-  torAddr.disabled = !tor.checked;
+  const torHost = $("set-tor-host") as HTMLInputElement;
+  const torPort = $("set-tor-port") as HTMLInputElement;
+  tor.checked = config.tor.enabled;
+  torHost.value = config.tor.host;
+  torPort.value = String(config.tor.port);
+  torHost.disabled = !tor.checked;
+  torPort.disabled = !tor.checked;
   ($("set-iqama") as HTMLInputElement).checked = config.iqama_alerts;
   ($("set-autostart") as HTMLInputElement).checked = config.autostart;
   $("set-status").textContent = "";
@@ -588,16 +603,16 @@ async function saveSettings(): Promise<void> {
     // only carries the toggles.
     let cfg = await invoke<AppConfig>("get_config");
     // Tor opt-in: an unchecked box means direct connection; a checked one
-    // requires a plausible socks5h:// address (backend re-validates and
-    // rejects the save with a visible message otherwise).
+    // requires a plausible host (backend re-validates and rejects the save
+    // with a visible message otherwise).
     const tor = ($("set-tor") as HTMLInputElement);
-    const torAddr = ($("set-tor-addr") as HTMLInputElement).value.trim();
-    if (tor.checked && torAddr === "") {
-      status.textContent =
-        "Enter a Tor proxy address (socks5h://host[:port]) or untick the Tor option.";
+    const torHost = ($("set-tor-host") as HTMLInputElement).value.trim();
+    const torPort = Number(($("set-tor-port") as HTMLInputElement).value);
+    if (tor.checked && (torHost === "" || !Number.isInteger(torPort) || torPort < 1 || torPort > 65535)) {
+      toast("Enter a Tor proxy host and port (1–65535) or untick the Tor option.");
       return;
     }
-    cfg.tor_socks_addr = tor.checked ? torAddr : null;
+    cfg.tor = { enabled: tor.checked, host: torHost || "127.0.0.1", port: torPort };
     cfg.iqama_alerts = ($("set-iqama") as HTMLInputElement).checked;
     cfg.autostart = ($("set-autostart") as HTMLInputElement).checked;
 
@@ -620,6 +635,7 @@ async function saveSettings(): Promise<void> {
     }
 
     closeSettings();
+    toast("Settings saved", false);
     if (isConfigured()) {
       await loadToday().catch((e) => toast(`Failed to load prayer times: ${e}`));
     } else {
@@ -1048,9 +1064,26 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch((e) => console.warn("getVersion failed:", e));
 
   $("settings-btn").addEventListener("click", openSettings);
-  $("set-tor").addEventListener("change", () => {
-    ($("set-tor-addr") as HTMLInputElement).disabled = !($("set-tor") as HTMLInputElement).checked;
+  // Topbar Tor toggle: flips immediately (backend swaps the transport).
+  $("tor-btn").addEventListener("click", async () => {
+    if (!config) return;
+    try {
+      const on = await invoke<boolean>("set_tor_enabled", { on: !config.tor.enabled });
+      config.tor.enabled = on;
+      const btn = $("tor-btn");
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+      toast(on ? "Tor on" : "Tor off", false);
+    } catch (e) {
+      toast(`Tor toggle failed: ${e}`);
+    }
   });
+  const syncTorFields = (): void => {
+    const on = ($("set-tor") as HTMLInputElement).checked;
+    ($("set-tor-host") as HTMLInputElement).disabled = !on;
+    ($("set-tor-port") as HTMLInputElement).disabled = !on;
+  };
+  $("set-tor").addEventListener("change", syncTorFields);
   $("offline-btn").addEventListener("click", () => void toggleOffline());
   $("mosque-btn").addEventListener("click", openMosque);
   $("mosque-cancel-btn").addEventListener("click", closeMosque);
@@ -1163,7 +1196,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  $("set-search-btn").addEventListener("click", () =>
+  const runMosqueSearch = (): void => {
     searchMosques(
       ($("set-search") as HTMLInputElement).value,
       $("set-results"),
@@ -1171,8 +1204,23 @@ document.addEventListener("DOMContentLoaded", () => {
         $("set-current-mosque").textContent = mosqueDisplayName(m);
         void pickMosqueFromDialog(m);
       },
-    ),
-  );
+    );
+  };
+  $("set-search-btn").addEventListener("click", runMosqueSearch);
+  $("set-search").addEventListener("keydown", (e) => {
+    if ((e as KeyboardEvent).key === "Enter") {
+      e.preventDefault();
+      runMosqueSearch();
+    }
+  });
+  // Live suggestions: after 4 letters, search as you type (debounced).
+  let suggestTimer: number | null = null;
+  $("set-search").addEventListener("input", () => {
+    const value = ($("set-search") as HTMLInputElement).value.trim();
+    if (suggestTimer !== null) window.clearTimeout(suggestTimer);
+    if (value.length < 4) return;
+    suggestTimer = window.setTimeout(runMosqueSearch, 300);
+  });
 
   window.setInterval(tick, 1000);
 

@@ -1189,6 +1189,63 @@ body.glance-mode {
   margin-top: 6px;
 }
 
+
+/* ---------- Tor toggle ---------- */
+
+#tor-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#tor-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+#tor-btn.active {
+  background: rgba(255, 208, 95, 0.14);
+  color: var(--accent);
+}
+
+.tor-fields {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-top: 8px;
+}
+
+.tor-scheme {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  padding: 10px 0 10px 10px;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.tor-fields input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  border-radius: 0;
+}
+
+.tor-fields input[type="number"] {
+  width: 84px;
+  border-radius: 0 8px 8px 0;
+  border-left: none;
+}
+
 /* ---------- Toast ---------- */
 #toast {
   position: fixed;

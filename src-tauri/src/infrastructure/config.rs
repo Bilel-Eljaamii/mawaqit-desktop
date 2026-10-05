@@ -47,10 +47,43 @@ pub fn load_config_from(path: &std::path::Path) -> AppConfig {
     // changes nothing observable for the user.
     let sound_switch = legacy_sound_switch(&value);
     seed_missing_prayer_alerts(&mut value, sound_switch);
-    let Ok(config) = serde_json::from_value::<AppConfig>(value) else {
+    let Ok(mut config) = serde_json::from_value::<AppConfig>(value) else {
         return AppConfig::default();
     };
+    migrate_legacy_tor_address(&mut config);
     config
+}
+
+/// Upgrade migration: a pre-0.9.0 config carries the Tor proxy as a single
+/// `tor_socks_addr` string (`socks5h://host:port`). Parse it into the
+/// structured `tor` block when the structured block is untouched; the
+/// legacy field is cleared on the next save.
+fn migrate_legacy_tor_address(config: &mut crate::domain::models::AppConfig) {
+    use crate::domain::models::{is_plausible_tor_host, TorProxy};
+    let Some(addr) = config.tor_socks_addr.as_deref() else {
+        return;
+    };
+    let Some(rest) = addr.trim().strip_prefix("socks5h://") else {
+        return;
+    };
+    // Only migrate when the structured block is still at its default — an
+    // explicitly configured new-shape block wins.
+    if config.tor.enabled
+        || config.tor.host != crate::domain::models::DEFAULT_TOR_HOST
+    {
+        return;
+    }
+    let (host, port) = match rest.rsplit_once(':') {
+        Some((host, port)) => (host, port.parse::<u16>().ok()),
+        None => (rest, None),
+    };
+    if is_plausible_tor_host(host) && port.is_some() {
+        config.tor = TorProxy {
+            enabled: true,
+            host: host.to_string(),
+            port: port.unwrap_or(9050),
+        };
+    }
 }
 
 /// The legacy `sound_enabled` field, read raw (defaulted true) before the
@@ -400,6 +433,53 @@ mod tests {
         assert_eq!(cfg.mosque_slug, "paris");
         assert_eq!(cfg.alerts.dhuhr.volume, Some(40));
         assert_eq!(cfg.alerts.fajr, crate::domain::models::PrayerAlerts::default());
+    }
+
+    #[test]
+    fn legacy_tor_socks_addr_migrates_into_the_structured_block() {
+        let path = write_temp(
+            "tor-legacy",
+            r#"{"mosque_slug":"x","tor_socks_addr":"socks5h://127.0.0.1:9050"}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        assert!(cfg.tor.enabled);
+        assert_eq!(cfg.tor.host, "127.0.0.1");
+        assert_eq!(cfg.tor.port, 9050);
+    }
+
+    #[test]
+    fn new_tor_shape_loads_directly() {
+        let path = write_temp(
+            "tor-new",
+            r#"{"mosque_slug":"x","tor":{"enabled":true,"host":"192.168.1.9","port":9150}}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        assert!(cfg.tor.enabled);
+        assert_eq!(cfg.tor.host, "192.168.1.9");
+        assert_eq!(cfg.tor.port, 9150);
+        // The legacy field stays empty — it is migration input only.
+        assert!(cfg.tor_socks_addr.is_none());
+    }
+
+    #[test]
+    fn hostile_tor_block_shapes_fall_back_to_defaults() {
+        for content in [
+            r#"{"mosque_slug":"x","tor":"yes"}"#,
+            r#"{"mosque_slug":"x","tor":42}"#,
+            r#"{"mosque_slug":"x","tor":{"enabled":"yes"}}"#,
+            r#"{"mosque_slug":"x","tor":{"port":99999}}"#,
+        ] {
+            let path = write_temp("bad-tor", content);
+            let cfg = load_config_from(&path);
+            cleanup(&path);
+            assert_eq!(
+                cfg,
+                AppConfig::default(),
+                "content {content:?} must yield defaults"
+            );
+        }
     }
 
     #[test]

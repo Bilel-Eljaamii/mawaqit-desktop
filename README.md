@@ -43,7 +43,7 @@ mawaqit-api = { version = "0.2.0", path = "../../mawaqit-api" }
   never blocks the app). The tray menu and the settings dialog show the app
   version. The tray menu also lists today's times (next prayer
   marked), and the window title carries the countdown for alt-tab/taskbar.
-- **Privacy: optional Tor routing** — a settings toggle sends all mawaqit.net
+- **Privacy: optional Tor routing** — also a one-click toggle in the topbar. — a settings toggle sends all mawaqit.net
   traffic through Tor (or any SOCKS5 proxy with remote DNS, `socks5h://`).
   Off by default; needs a running system tor (9050) or Tor Browser (9150);
   applied at startup, and an unreachable proxy degrades to a direct

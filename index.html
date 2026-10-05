@@ -21,6 +21,9 @@
           <svg id="offline-icon-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
           <svg id="offline-icon-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
         </button>
+        <button id="tor-btn" title="Tor" aria-pressed="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>
+        </button>
         <button id="mosque-btn" title="Switch mosque">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20"></path><path d="M4 22V6a8 8 0 0 1 16 0v16"></path><path d="M12 2v4"></path><path d="M9 22v-4a3 3 0 0 1 6 0v4"></path><circle cx="12" cy="11" r="1"></circle></svg>
         </button>
@@ -135,9 +138,13 @@
           <input type="checkbox" id="set-tor" />
           <span>Route mawaqit.net traffic through Tor</span>
         </label>
-        <input type="text" id="set-tor-addr" placeholder="socks5h://127.0.0.1:9050" spellcheck="false" />
+        <div class="tor-fields" id="tor-fields">
+          <span class="tor-scheme">socks5h://</span>
+          <input type="text" id="set-tor-host" placeholder="127.0.0.1" spellcheck="false" />
+          <input type="number" id="set-tor-port" min="1" max="65535" placeholder="9050" />
+        </div>
         <p class="form-hint">Requires a running Tor/SOCKS5 proxy (system tor:
-          127.0.0.1:9050 &middot; Tor Browser: 9150). Takes effect after restart.</p>
+          127.0.0.1:9050 &middot; Tor Browser: 9150). Applies immediately.</p>
       </div>
 
       <div class="form-group">

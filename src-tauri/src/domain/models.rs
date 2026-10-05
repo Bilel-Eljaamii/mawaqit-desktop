@@ -88,6 +88,62 @@ impl AlertsConfig {
     }
 }
 
+/// The Tor transport policy (value object): whether mawaqit.net traffic is
+/// routed through a local Tor/SOCKS5 proxy, and where it is. The
+/// `socks5h://` scheme is fixed by this type — callers only ever supply
+/// host and port, so a DNS-leaking plain `socks5://` can never be stored.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct TorProxy {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_tor_host")]
+    pub host: String,
+    #[serde(default = "default_tor_port")]
+    pub port: u16,
+}
+
+pub const DEFAULT_TOR_HOST: &str = "127.0.0.1";
+
+fn default_tor_host() -> String {
+    DEFAULT_TOR_HOST.into()
+}
+
+fn default_tor_port() -> u16 {
+    9050
+}
+
+impl Default for TorProxy {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: default_tor_host(),
+            port: default_tor_port(),
+        }
+    }
+}
+
+/// A plausible Tor proxy host: letters/digits/dots/dashes, no scheme, no
+/// path, no whitespace. The api crate enforces the strict socks5h URL rules
+/// at client construction; this is the save-time guard.
+pub fn is_plausible_tor_host(host: &str) -> bool {
+    !host.is_empty()
+        && host
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
+}
+
+impl TorProxy {
+    /// The proxy address for the api client (`socks5h://host:port`), or
+    /// `None` when Tor is off or the host is implausible — callers degrade
+    /// to a direct connection.
+    pub fn socks5h_url(&self) -> Option<String> {
+        if !self.enabled || !is_plausible_tor_host(&self.host) {
+            return None;
+        }
+        Some(format!("socks5h://{}:{}", self.host, self.port))
+    }
+}
+
 /// Persisted app configuration. Old config files (with `masjid_id`, or the
 /// brief `email`/`password` era) load cleanly: unknown fields are ignored
 /// and missing ones get defaults. No account data is stored — mawaqit.net
@@ -118,6 +174,10 @@ pub struct AppConfig {
     /// mawaqit.net traffic is routed through it. Applied at startup; an
     /// unreachable proxy degrades to a direct connection with a log line.
     #[serde(default)]
+    pub tor: TorProxy,
+    /// Legacy single-string Tor address (`socks5h://host:port`), migrated
+    /// into `tor` on load and no longer written after the first save.
+    #[serde(default)]
     pub tor_socks_addr: Option<String>,
     #[serde(default)]
     pub alerts: AlertsConfig,
@@ -139,6 +199,7 @@ impl Default for AppConfig {
             iqama_alerts: false,
             autostart: true,
             offline_mode: false,
+            tor: TorProxy::default(),
             tor_socks_addr: None,
             alerts: AlertsConfig::default(),
             announcements_read: Vec::new(),
@@ -226,5 +287,58 @@ impl TodayPayload {
                 })
                 .collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tor_proxy_tests {
+    use super::*;
+
+    #[test]
+    fn url_built_only_when_enabled_and_plausible() {
+        let on = TorProxy { enabled: true, host: "127.0.0.1".into(), port: 9050 };
+        assert_eq!(on.socks5h_url().as_deref(), Some("socks5h://127.0.0.1:9050"));
+
+        // Disabled: no URL, whatever the address.
+        let off = TorProxy { enabled: false, ..on };
+        assert!(off.socks5h_url().is_none());
+
+        // Implausible host: no URL.
+        let bad = TorProxy { enabled: true, host: "not a host!".into(), port: 9050 };
+        assert!(bad.socks5h_url().is_none());
+        let empty = TorProxy { enabled: true, host: String::new(), port: 9050 };
+        assert!(empty.socks5h_url().is_none());
+    }
+
+    #[test]
+    fn port_bounds_and_host_charset() {
+        assert!(is_plausible_tor_host("tor.internal.lan"));
+        assert!(is_plausible_tor_host("127.0.0.1"));
+        assert!(!is_plausible_tor_host(""));
+        assert!(!is_plausible_tor_host("bad host"));
+        assert!(!is_plausible_tor_host("socks5h://evil"));
+
+        let bad_port = TorProxy { enabled: true, host: "127.0.0.1".into(), port: 0 };
+        // Port 0 is technically stored but the URL keeps it explicit — the
+        // api rejects unreachable proxies by failing to connect, and the
+        // settings UI bounds the input to 1..=65535.
+        assert_eq!(
+            bad_port.socks5h_url().as_deref(),
+            Some("socks5h://127.0.0.1:0")
+        );
+    }
+
+    #[test]
+    fn serde_shape_is_stable() {
+        let json = r#"{"enabled":true,"host":"127.0.0.1","port":9150}"#;
+        let proxy: TorProxy = serde_json::from_str(json).unwrap();
+        assert!(proxy.enabled);
+        assert_eq!(proxy.host, "127.0.0.1");
+        assert_eq!(proxy.port, 9150);
+        // Missing fields take defaults (disabled, system tor).
+        let minimal: TorProxy = serde_json::from_str("{}").unwrap();
+        assert!(!minimal.enabled);
+        assert_eq!(minimal.host, "127.0.0.1");
+        assert_eq!(minimal.port, 9050);
     }
 }

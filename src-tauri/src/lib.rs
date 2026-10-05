@@ -23,25 +23,12 @@ use tauri_plugin_notification::NotificationExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // The Tor opt-in is read before the client is built: routing is a
-    // property of the transport, decided once at startup (restart-to-apply).
     let config = infrastructure::config::load_config();
-    // The disk snapshot makes prayer times (and the alarms) survive a dead
-    // network: fetched pages are stored, failures fall back to the store.
-    let mut client =
-        MawaqitClient::new().with_disk_cache(infrastructure::config::cache_dir());
-    // Tor opt-in: an unreachable or strictly-invalid proxy degrades to a
-    // direct connection with a log line — the app must always start.
-    if let Some(addr) = &config.tor_socks_addr {
-        client = match client.with_socks_proxy(addr.clone()) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("tor proxy unavailable: {e}");
-                MawaqitClient::new()
-                    .with_disk_cache(infrastructure::config::cache_dir())
-            }
-        };
-    }
+    // The holder wraps the transport so a Tor toggle can swap it at runtime:
+    // the disk snapshot makes prayer times (and the alarms) survive a dead
+    // network, and the Tor proxy (when enabled) routes it through Tor.
+    let client_holder =
+        infrastructure::client_handle::ClientHolder::from_config(&config);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
@@ -51,7 +38,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .manage(client.clone())
+        .manage(client_holder.clone())
         .manage(RefreshFlag::new())
         .invoke_handler(tauri::generate_handler![
             presentation::commands::get_config,
@@ -123,7 +110,7 @@ pub fn run() {
 
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                background_loop(handle, client).await;
+                background_loop(handle, client_holder.clone()).await;
             });
 
             Ok(())
@@ -178,15 +165,23 @@ fn position_glance(glance: &tauri::WebviewWindow) {
     let _ = glance.set_position(tauri::PhysicalPosition::new(x, y));
 }
 
-async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
-    let mut last_slug = String::new();
+async fn background_loop(
+    handle: tauri::AppHandle,
+    holder: infrastructure::client_handle::ClientHolder,
+) {
+    // Re-read per cycle: a Tor toggle swaps the transport in the holder and
+    // the alarms pick it up on the next tick, without a restart.
     let mut last_offline: Option<bool> = None;
+    let mut last_slug = String::new();
     let mut last_date = chrono::Local::now().date_naive();
     let mut today: Option<TodayPayload> = None;
     // "{date}|adhan|Fajr" keys; reset whenever the date rolls over.
     let mut alerted: HashSet<String> = HashSet::new();
 
     loop {
+        // Read per cycle: a Tor toggle swaps the transport in the holder and
+        // the alarms pick it up on the next tick, without a restart.
+        let client = holder.current();
         let config = infrastructure::config::load_config();
 
         if config.mosque_slug != last_slug {
@@ -244,6 +239,7 @@ async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
         }
 
         if let Some(payload) = &today {
+            let client = holder.current();
             tick(&handle, &config, payload, &mut alerted, &client);
         }
 

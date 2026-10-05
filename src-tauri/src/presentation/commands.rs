@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
-use mawaqit_api::{MawaqitClient, MonthIqamaTimes, MonthTimes, Mosque};
+use mawaqit_api::{MonthIqamaTimes, MonthTimes, Mosque};
 use tauri::State;
 
 use crate::{
     domain::models::{AppConfig, TodayPayload},
     infrastructure::{
         audio,
+        client_handle::{rebuild_client, ClientHolder},
         config::{cache_dir, load_config, save_config},
     },
 };
@@ -16,35 +17,15 @@ pub fn get_config() -> AppConfig {
     load_config()
 }
 
-/// Plausibility check for a Tor/SOCKS5 proxy address (settings-save UX):
-/// `socks5h://host[:port]` with a non-empty host and an optional numeric
-/// port. The strict enforcement (remote-DNS scheme, reachability) lives in
-/// the api at client construction; an address that passes here but fails
-/// there degrades to a direct connection at startup with a log line.
-fn is_plausible_socks_addr(addr: &str) -> bool {
-    let Some(rest) = addr.trim().strip_prefix("socks5h://") else {
-        return false;
-    };
-    // A proxy address is scheme://host[:port] — a path, query or fragment
-    // means the string is not one.
-    if rest.contains(['/', '?', '#']) {
-        return false;
-    }
-    let authority = rest;
-    let (host, port) = match authority.rsplit_once(':') {
-        Some((host, port)) => (host, Some(port)),
-        None => (authority, None),
-    };
-    let host_ok =
-        !host.is_empty() && host.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
-    let port_ok = port.is_none_or(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
-    host_ok && port_ok
-}
+/// Plausibility check for a Tor proxy host (settings-save UX). The api
+/// enforces the strict socks5h URL rules at client construction; this is
+/// the save-time guard.
+use crate::domain::models::is_plausible_tor_host;
 
 #[tauri::command]
 pub fn update_config(
     config: AppConfig,
-    client: State<MawaqitClient>,
+    client: State<ClientHolder>,
 ) -> Result<(), String> {
     // FINDING F2: a slug reaching the config file must be a real mosque page
     // identifier — `../`, `?`/`#` or encoded variants never get persisted.
@@ -55,16 +36,18 @@ pub fn update_config(
             config.mosque_slug
         ));
     }
-    // Tor opt-in: an address reaching the config file must at least look
-    // like a SOCKS5 proxy — `socks5h://host[:port]`. The strict enforcement
-    // (remote-DNS scheme, reachability) lives in the api at client
-    // construction; an address that passes here but fails there degrades to
-    // a direct connection at startup with a log line.
-    if let Some(addr) = &config.tor_socks_addr {
-        if !is_plausible_socks_addr(addr) {
+    // Tor opt-in: the host and port must be plausible for the socks5h URL
+    // the domain value object builds; the strict enforcement (remote-DNS
+    // scheme, reachability) lives in the api at client construction.
+    if config.tor.enabled {
+        if !is_plausible_tor_host(&config.tor.host) {
             return Err(format!(
-                "invalid Tor proxy address {addr:?} — expected socks5h://host[:port]"
+                "invalid Tor proxy host {:?}",
+                config.tor.host
             ));
+        }
+        if config.tor.port == 0 {
+            return Err("invalid Tor proxy port 0 — use 1–65535".into());
         }
     }
     // Voice ids are catalog keys: a known id resolves to a CDN URL; an
@@ -89,7 +72,12 @@ pub fn update_config(
     config.sound_enabled = config.alerts.any_adhan();
     let previous = load_config();
     if previous.mosque_slug != config.mosque_slug {
-        client.invalidate(Some(&previous.mosque_slug));
+        client.current().invalidate(Some(&previous.mosque_slug));
+    }
+    // A changed Tor policy swaps the transport immediately — the toggle and
+    // the settings fields apply without a restart.
+    if previous.tor != config.tor {
+        rebuild_client(&client, &config);
     }
     save_config(&config);
     Ok(())
@@ -97,12 +85,13 @@ pub fn update_config(
 
 #[tauri::command]
 pub async fn search_mosques(
-    client: State<'_, MawaqitClient>,
+    client: State<'_, ClientHolder>,
     query: String,
 ) -> Result<Vec<Mosque>, String> {
     if load_config().offline_mode {
         return Err("Offline mode is on — turn it off to search for mosques.".into());
     }
+    let client = client.current();
     client.search_mosques(&query).await.map_err(|e| e.to_string())
 }
 
@@ -110,9 +99,10 @@ pub async fn search_mosques(
 /// online = network (snapshot fallback on failure, client-managed); offline
 /// = the disk snapshot only, never the network.
 async fn conf_for_view(
-    client: &State<'_, MawaqitClient>,
+    client: &ClientHolder,
     config: &AppConfig,
 ) -> Result<(std::sync::Arc<mawaqit_api::ConfData>, Option<chrono::NaiveDate>), String> {
+    let client = client.current();
     if config.offline_mode {
         let (conf, date) = offline_conf_from(&cache_dir(), &config.mosque_slug)?;
         Ok((std::sync::Arc::new(conf), Some(date)))
@@ -136,7 +126,8 @@ fn offline_conf_from(
 /// Toggle offline mode. Both directions clear the in-memory page cache so
 /// the next view serves from the newly chosen source, not a stale copy.
 #[tauri::command]
-pub fn set_offline_mode(on: bool, client: State<MawaqitClient>) -> Result<(), String> {
+pub fn set_offline_mode(on: bool, client: State<ClientHolder>) -> Result<(), String> {
+    let client = client.current();
     let mut config = load_config();
     if config.offline_mode != on {
         config.offline_mode = on;
@@ -146,10 +137,29 @@ pub fn set_offline_mode(on: bool, client: State<MawaqitClient>) -> Result<(), St
     Ok(())
 }
 
+/// Topbar Tor toggle: flips the policy, rebuilds and swaps the transport so
+/// the change applies immediately (alarms and UI data paths), and persists
+/// it. Fails when Tor is switched on without a plausible host.
+#[tauri::command]
+pub fn set_tor_enabled(on: bool, client: State<ClientHolder>) -> Result<bool, String> {
+    let mut config = load_config();
+    if on && !is_plausible_tor_host(&config.tor.host) {
+        return Err(
+            "Cannot enable Tor — set a valid proxy host in Settings first.".into(),
+        );
+    }
+    if config.tor.enabled != on {
+        config.tor.enabled = on;
+        rebuild_client(&client, &config);
+        save_config(&config);
+    }
+    Ok(on)
+}
+
 /// Today's times + mosque metadata for the Today view.
 #[tauri::command]
 pub async fn get_today(
-    client: State<'_, MawaqitClient>,
+    client: State<'_, ClientHolder>,
 ) -> Result<Option<TodayPayload>, String> {
     let config = load_config();
     if !config.has_mosque() {
@@ -163,7 +173,7 @@ pub async fn get_today(
 
 #[tauri::command]
 pub async fn get_month(
-    client: State<'_, MawaqitClient>,
+    client: State<'_, ClientHolder>,
     month: u32,
 ) -> Result<MonthTimes, String> {
     let config = load_config();
@@ -176,7 +186,7 @@ pub async fn get_month(
 
 #[tauri::command]
 pub async fn get_month_iqama(
-    client: State<'_, MawaqitClient>,
+    client: State<'_, ClientHolder>,
     month: u32,
 ) -> Result<MonthIqamaTimes, String> {
     let config = load_config();
@@ -246,11 +256,12 @@ pub fn adhan_voices() -> Vec<mawaqit_api::AdhanVoice> {
 
 #[tauri::command]
 pub async fn download_voice(
-    client: State<'_, MawaqitClient>,
+    client: State<'_, ClientHolder>,
     voice_id: String,
 ) -> Result<(), String> {
     let dir = crate::infrastructure::config::voices_dir();
-    mawaqit_api::voices::download_voice(client.inner(), &voice_id, &dir)
+    let client = client.current();
+    mawaqit_api::voices::download_voice(&client, &voice_id, &dir)
         .await
         .map(|_| ())
         .map_err(|e| e.to_string())
@@ -310,39 +321,5 @@ mod tests {
         let conf = mawaqit_api::parse_page(&sample_page("A"), "t").unwrap();
         mawaqit_api::disk::store(&dir, "mosque-a", &conf).unwrap();
         assert!(offline_conf_from(&dir, "mosque-b").is_err());
-    }
-}
-
-#[cfg(test)]
-mod socks_addr_tests {
-    use super::is_plausible_socks_addr;
-
-    #[test]
-    fn accepts_well_formed_socks5h_addresses() {
-        assert!(is_plausible_socks_addr("socks5h://127.0.0.1:9050"));
-        assert!(is_plausible_socks_addr("socks5h://localhost"));
-        assert!(is_plausible_socks_addr("socks5h://tor.internal.lan:9150"));
-        assert!(is_plausible_socks_addr("  socks5h://127.0.0.1:9050  "));
-    }
-
-    #[test]
-    fn rejects_mistyped_or_leaking_addresses() {
-        // Everything below must be caught at save time so a leaking or
-        // nonsense proxy never reaches the config file.
-        for bad in [
-            "",
-            "   ",
-            "127.0.0.1:9050",          // no scheme: DNS would leak
-            "socks5://127.0.0.1:9050", // plain socks5: DNS would leak
-            "http://127.0.0.1:8118",   // http proxy, wrong tool
-            "socks5h://",              // no host
-            "socks5h://host:port",     // non-numeric port
-            "socks5h://host:9050/x",   // path is not part of a proxy address
-        ] {
-            assert!(
-                !is_plausible_socks_addr(bad),
-                "{bad:?} must not pass the plausibility check"
-            );
-        }
     }
 }
