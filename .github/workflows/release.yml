@@ -22,7 +22,7 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: tag must match tauri.conf.json version
         run: |
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: verify
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # src-tauri depends on the sibling mawaqit-api via a relative path
       # (../../mawaqit-api). Place that public repo exactly where cargo
@@ -96,7 +96,7 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # src-tauri depends on the sibling mawaqit-api via a relative path
       # (../../mawaqit-api). Place that public repo exactly where cargo
