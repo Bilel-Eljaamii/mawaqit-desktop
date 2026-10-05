@@ -23,10 +23,25 @@ use tauri_plugin_notification::NotificationExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // The Tor opt-in is read before the client is built: routing is a
+    // property of the transport, decided once at startup (restart-to-apply).
+    let config = infrastructure::config::load_config();
     // The disk snapshot makes prayer times (and the alarms) survive a dead
     // network: fetched pages are stored, failures fall back to the store.
-    let client =
+    let mut client =
         MawaqitClient::new().with_disk_cache(infrastructure::config::cache_dir());
+    // Tor opt-in: an unreachable or strictly-invalid proxy degrades to a
+    // direct connection with a log line — the app must always start.
+    if let Some(addr) = &config.tor_socks_addr {
+        client = match client.with_socks_proxy(addr.clone()) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("tor proxy unavailable: {e}");
+                MawaqitClient::new()
+                    .with_disk_cache(infrastructure::config::cache_dir())
+            }
+        };
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(

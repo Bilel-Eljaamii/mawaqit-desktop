@@ -98,6 +98,12 @@ escaped copy of the *raw* string, so control characters the URL parser strips
 could make CSS fetch a different URL than the one validated — fixed by
 emitting the parsed URL.
 
+`tor_socks_addr` (v0.7.0) also comes from the attacker-writable config:
+the worst case is a self-DoS — traffic routed to a hostile proxy. Pinned:
+`update_config` rejects addresses that are not `socks5h://host[:port]`
+(`is_plausible_socks_addr`), and a startup proxy failure degrades to a
+direct connection with a log line; both have tests.
+
 Since v0.2.0 the per-prayer alerts config can name a `sound` path on disk;
 a tampered config file can therefore make the app play any local mp3/wav as
 the athan. Bounded by design: the path is opened as audio input only

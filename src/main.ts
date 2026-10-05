@@ -41,6 +41,8 @@ interface AppConfig {
   autostart: boolean;
   /** Serve saved (snapshot) times only; never touch the network for data. */
   offline_mode: boolean;
+  /** Tor/SOCKS5 proxy (socks5h://host[:port]); null = direct connection. */
+  tor_socks_addr: string | null;
   alerts: AlertsConfig;
   /** Ids of mosque announcements the user has read (capped backend-side). */
   announcements_read: string[];
@@ -113,6 +115,7 @@ const DEFAULT_CONFIG: AppConfig = {
   iqama_alerts: false,
   autostart: true,
   offline_mode: false,
+  tor_socks_addr: null,
   alerts: defaultAlerts(),
   announcements_read: [],
 };
@@ -408,6 +411,11 @@ async function pickOnboardingMosque(mosque: Mosque): Promise<void> {
 
 function openSettings(): void {
   if (!config) return;
+  const tor = ($("set-tor") as HTMLInputElement);
+  const torAddr = $("set-tor-addr") as HTMLInputElement;
+  tor.checked = config.tor_socks_addr !== null;
+  torAddr.value = config.tor_socks_addr ?? "";
+  torAddr.disabled = !tor.checked;
   ($("set-iqama") as HTMLInputElement).checked = config.iqama_alerts;
   ($("set-autostart") as HTMLInputElement).checked = config.autostart;
   $("set-status").textContent = "";
@@ -561,6 +569,17 @@ async function saveSettings(): Promise<void> {
     // Mosque switching applies immediately from its own dialog; this dialog
     // only carries the toggles.
     let cfg = await invoke<AppConfig>("get_config");
+    // Tor opt-in: an unchecked box means direct connection; a checked one
+    // requires a plausible socks5h:// address (backend re-validates and
+    // rejects the save with a visible message otherwise).
+    const tor = ($("set-tor") as HTMLInputElement);
+    const torAddr = ($("set-tor-addr") as HTMLInputElement).value.trim();
+    if (tor.checked && torAddr === "") {
+      status.textContent =
+        "Enter a Tor proxy address (socks5h://host[:port]) or untick the Tor option.";
+      return;
+    }
+    cfg.tor_socks_addr = tor.checked ? torAddr : null;
     cfg.iqama_alerts = ($("set-iqama") as HTMLInputElement).checked;
     cfg.autostart = ($("set-autostart") as HTMLInputElement).checked;
 
@@ -866,6 +885,9 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch((e) => console.warn("getVersion failed:", e));
 
   $("settings-btn").addEventListener("click", openSettings);
+  $("set-tor").addEventListener("change", () => {
+    ($("set-tor-addr") as HTMLInputElement).disabled = !($("set-tor") as HTMLInputElement).checked;
+  });
   $("offline-btn").addEventListener("click", () => void toggleOffline());
   $("mosque-btn").addEventListener("click", openMosque);
   $("mosque-cancel-btn").addEventListener("click", closeMosque);

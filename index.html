@@ -132,6 +132,16 @@
 
       <div class="form-group">
         <label class="checkbox-group">
+          <input type="checkbox" id="set-tor" />
+          <span>Route mawaqit.net traffic through Tor</span>
+        </label>
+        <input type="text" id="set-tor-addr" placeholder="socks5h://127.0.0.1:9050" spellcheck="false" />
+        <p class="form-hint">Requires a running Tor/SOCKS5 proxy (system tor:
+          127.0.0.1:9050 &middot; Tor Browser: 9150). Takes effect after restart.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-group">
           <input type="checkbox" id="set-iqama" />
           <span>Notify at iqama time</span>
         </label>

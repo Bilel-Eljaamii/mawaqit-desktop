@@ -1,6 +1,6 @@
 [package]
 name = "mawaqit_desktop"
-version = "0.6.0"
+version = "0.7.0"
 description = "Mawaqit Desktop"
 authors = ["Bilel Eljaamii"]
 edition = "2021"
@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-mawaqit-api = { version = "0.2.0", path = "../../mawaqit-api" }
+mawaqit-api = { version = "0.3.0", path = "../../mawaqit-api" }
 tauri = { version = "2.11.6", features = ["image", "tray-icon"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

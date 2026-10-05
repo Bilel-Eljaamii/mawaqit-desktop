@@ -109,6 +109,11 @@ pub struct AppConfig {
     /// the network is never touched for conf data (search is refused too).
     #[serde(default)]
     pub offline_mode: bool,
+    /// Tor/SOCKS5 proxy address (`socks5h://host[:port]`) — when set, all
+    /// mawaqit.net traffic is routed through it. Applied at startup; an
+    /// unreachable proxy degrades to a direct connection with a log line.
+    #[serde(default)]
+    pub tor_socks_addr: Option<String>,
     #[serde(default)]
     pub alerts: AlertsConfig,
     /// Ids of mosque announcements the user has read. Capped on save.
@@ -129,6 +134,7 @@ impl Default for AppConfig {
             iqama_alerts: false,
             autostart: true,
             offline_mode: false,
+            tor_socks_addr: None,
             alerts: AlertsConfig::default(),
             announcements_read: Vec::new(),
         }

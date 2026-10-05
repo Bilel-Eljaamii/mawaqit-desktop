@@ -393,6 +393,7 @@ mod tests {
                     maghrib: "19:40".into(),
                     isha: "21:05".into(),
                 }),
+                iqama_at: None,
             },
             as_of: None,
             announcements: Vec::new(),

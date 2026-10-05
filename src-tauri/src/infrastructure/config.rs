@@ -393,6 +393,41 @@ mod tests {
     }
 
     #[test]
+    fn wrong_typed_tor_socks_addr_falls_back_to_defaults() {
+        for content in [
+            r#"{"mosque_slug":"x","tor_socks_addr":42}"#,
+            r#"{"mosque_slug":"x","tor_socks_addr":["socks5h://1.2.3.4"]}"#,
+            r#"{"mosque_slug":"x","tor_socks_addr":{"scheme":"socks5h"}}"#,
+        ] {
+            let path = write_temp("bad-tor-addr", content);
+            let cfg = load_config_from(&path);
+            cleanup(&path);
+            assert_eq!(
+                cfg,
+                AppConfig::default(),
+                "content {content:?} must yield defaults"
+            );
+        }
+    }
+
+    #[test]
+    fn hostile_tor_address_string_loads_losslessly() {
+        // The config layer never editorializes: a hostile address loads
+        // verbatim and is rejected/degraded at use time instead. (The raw
+        // string carries `\\evil`; JSON unescapes it to a single backslash.)
+        let path = write_temp(
+            "tor-addr-verbatim",
+            r#"{"mosque_slug":"x","tor_socks_addr":"socks5h://..\\evil"}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        assert_eq!(
+            cfg.tor_socks_addr.as_deref(),
+            Some("socks5h://..\\evil")
+        );
+    }
+
+    #[test]
     fn wrong_typed_announcements_read_falls_back_to_defaults() {
         for content in [
             r#"{"mosque_slug":"x","announcements_read":"yes"}"#,

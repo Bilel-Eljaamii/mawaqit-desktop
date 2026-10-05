@@ -16,6 +16,31 @@ pub fn get_config() -> AppConfig {
     load_config()
 }
 
+/// Plausibility check for a Tor/SOCKS5 proxy address (settings-save UX):
+/// `socks5h://host[:port]` with a non-empty host and an optional numeric
+/// port. The strict enforcement (remote-DNS scheme, reachability) lives in
+/// the api at client construction; an address that passes here but fails
+/// there degrades to a direct connection at startup with a log line.
+fn is_plausible_socks_addr(addr: &str) -> bool {
+    let Some(rest) = addr.trim().strip_prefix("socks5h://") else {
+        return false;
+    };
+    // A proxy address is scheme://host[:port] — a path, query or fragment
+    // means the string is not one.
+    if rest.contains(['/', '?', '#']) {
+        return false;
+    }
+    let authority = rest;
+    let (host, port) = match authority.rsplit_once(':') {
+        Some((host, port)) => (host, Some(port)),
+        None => (authority, None),
+    };
+    let host_ok =
+        !host.is_empty() && host.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-');
+    let port_ok = port.is_none_or(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
+    host_ok && port_ok
+}
+
 #[tauri::command]
 pub fn update_config(
     config: AppConfig,
@@ -29,6 +54,18 @@ pub fn update_config(
             "invalid mosque id {:?} — search for the mosque again",
             config.mosque_slug
         ));
+    }
+    // Tor opt-in: an address reaching the config file must at least look
+    // like a SOCKS5 proxy — `socks5h://host[:port]`. The strict enforcement
+    // (remote-DNS scheme, reachability) lives in the api at client
+    // construction; an address that passes here but fails there degrades to
+    // a direct connection at startup with a log line.
+    if let Some(addr) = &config.tor_socks_addr {
+        if !is_plausible_socks_addr(addr) {
+            return Err(format!(
+                "invalid Tor proxy address {addr:?} — expected socks5h://host[:port]"
+            ));
+        }
     }
     // The legacy global switch stays in the file for downgrades; whatever the
     // caller sent, it must agree with the per-prayer settings that now rule.
@@ -214,5 +251,39 @@ mod tests {
         let conf = mawaqit_api::parse_page(&sample_page("A"), "t").unwrap();
         mawaqit_api::disk::store(&dir, "mosque-a", &conf).unwrap();
         assert!(offline_conf_from(&dir, "mosque-b").is_err());
+    }
+}
+
+#[cfg(test)]
+mod socks_addr_tests {
+    use super::is_plausible_socks_addr;
+
+    #[test]
+    fn accepts_well_formed_socks5h_addresses() {
+        assert!(is_plausible_socks_addr("socks5h://127.0.0.1:9050"));
+        assert!(is_plausible_socks_addr("socks5h://localhost"));
+        assert!(is_plausible_socks_addr("socks5h://tor.internal.lan:9150"));
+        assert!(is_plausible_socks_addr("  socks5h://127.0.0.1:9050  "));
+    }
+
+    #[test]
+    fn rejects_mistyped_or_leaking_addresses() {
+        // Everything below must be caught at save time so a leaking or
+        // nonsense proxy never reaches the config file.
+        for bad in [
+            "",
+            "   ",
+            "127.0.0.1:9050",          // no scheme: DNS would leak
+            "socks5://127.0.0.1:9050", // plain socks5: DNS would leak
+            "http://127.0.0.1:8118",   // http proxy, wrong tool
+            "socks5h://",              // no host
+            "socks5h://host:port",     // non-numeric port
+            "socks5h://host:9050/x",   // path is not part of a proxy address
+        ] {
+            assert!(
+                !is_plausible_socks_addr(bad),
+                "{bad:?} must not pass the plausibility check"
+            );
+        }
     }
 }
