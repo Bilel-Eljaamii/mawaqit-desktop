@@ -805,16 +805,18 @@ async function renderVoiceList(): Promise<void> {
       alertsDraft[notifyTab].voice = v.id;
       // A catalog voice supersedes the custom file for this prayer.
       alertsDraft[notifyTab].sound = null;
-      try {
-        await invoke("download_voice", { voiceId: v.id });
-      } catch (e) {
-        // Offline or CDN down: keep the selection (builtin fallback plays);
-        // the next adhan retries the download.
-        toast(`Voice not downloaded yet — builtin athan will play: ${e}`);
-      }
+      // The selection lands first — the download must never gate the UI.
+      // Offline or CDN-down, awaiting download_voice before re-rendering
+      // hung the sheet for the whole transport timeout. On failure the
+      // selection stays: builtin plays now, the next adhan retries.
       await persistAlerts();
       syncNotifyPanel();
       await renderVoiceList();
+      try {
+        await invoke("download_voice", { voiceId: v.id });
+      } catch (e) {
+        toast(`Voice not downloaded yet — builtin athan will play: ${e}`);
+      }
     });
     list.appendChild(row);
   }
@@ -1111,6 +1113,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Athan voice sheet.
   $("voice-row").addEventListener("click", () => void toggleVoiceSheet());
+  $("voice-sheet-close").addEventListener("click", () => toggleVoiceSheetSync());
   $("notify-preview").addEventListener("click", async () => {
     const alerts = alertsDraft[notifyTab];
     const voiceId = alerts.voice ?? null;
