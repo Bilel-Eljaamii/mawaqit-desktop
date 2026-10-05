@@ -41,6 +41,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             presentation::commands::get_config,
             presentation::commands::update_config,
+            presentation::commands::set_offline_mode,
             presentation::commands::search_mosques,
             presentation::commands::get_today,
             presentation::commands::get_month,
@@ -161,6 +162,7 @@ fn position_glance(glance: &tauri::WebviewWindow) {
 
 async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
     let mut last_slug = String::new();
+    let mut last_offline: Option<bool> = None;
     let mut last_date = chrono::Local::now().date_naive();
     let mut today: Option<TodayPayload> = None;
     // "{date}|adhan|Fajr" keys; reset whenever the date rolls over.
@@ -175,6 +177,13 @@ async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
             last_slug = config.mosque_slug.clone();
         }
 
+        // Toggling offline mode switches the data source: re-resolve today
+        // from it (command-side already cleared the page cache).
+        if last_offline != Some(config.offline_mode) {
+            today = None;
+            last_offline = Some(config.offline_mode);
+        }
+
         let now_date = Local::now().date_naive();
         if now_date != last_date {
             alerted.clear();
@@ -185,7 +194,25 @@ async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
         if !config.has_mosque() {
             set_tray_status(&handle, "Mawaqit: right-click to choose your mosque");
         } else if today.is_none() {
-            match client.conf_data_dated(&config.mosque_slug).await {
+            let loaded = if config.offline_mode {
+                // Offline mode: the snapshot is the only source — the alarms
+                // keep working with no network at all.
+                mawaqit_api::disk::load(
+                    &infrastructure::config::cache_dir(),
+                    &config.mosque_slug,
+                )
+                .map(|(date, conf)| (std::sync::Arc::new(conf), Some(date)))
+                .ok_or_else(|| {
+                    "offline mode: no saved data for this mosque yet — go online once to fetch it"
+                        .to_string()
+                })
+            } else {
+                client
+                    .conf_data_dated(&config.mosque_slug)
+                    .await
+                    .map_err(|e| e.to_string())
+            };
+            match loaded {
                 Ok((conf, as_of)) => {
                     match mawaqit_api::times_for_date(&conf, Local::now().date_naive()) {
                         Ok(times) => {

@@ -94,9 +94,8 @@ pub fn save_config(config: &AppConfig) {
         let _ = fs::create_dir_all(parent);
     }
     let mut trimmed = config.clone();
-    trimmed.announcements_read = clamp_announcements_read(std::mem::take(
-        &mut trimmed.announcements_read,
-    ));
+    trimmed.announcements_read =
+        clamp_announcements_read(std::mem::take(&mut trimmed.announcements_read));
     if let Ok(content) = serde_json::to_string_pretty(&trimmed) {
         let _ = fs::write(path, content);
     }
@@ -149,6 +148,28 @@ mod tests {
                 "content {content:?} must yield defaults"
             );
         }
+    }
+
+    #[test]
+    fn offline_mode_defaults_to_off_and_roundtrips() {
+        // Absent field (every pre-toggle config) → offline mode off.
+        let path = write_temp(
+            "no-offline",
+            r#"{"mosque_slug":"grande-mosquee-de-paris","sound_enabled":true}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        assert!(!cfg.offline_mode, "absent offline_mode must default to false");
+
+        // Persisted state round-trips.
+        let path = write_temp(
+            "offline-on",
+            r#"{"mosque_slug":"grande-mosquee-de-paris","sound_enabled":true,"offline_mode":true}"#,
+        );
+        let cfg = load_config_from(&path);
+        cleanup(&path);
+        assert!(cfg.offline_mode, "offline_mode true must survive the roundtrip");
+        assert_eq!(cfg.mosque_slug, "grande-mosquee-de-paris");
     }
 
     #[test]

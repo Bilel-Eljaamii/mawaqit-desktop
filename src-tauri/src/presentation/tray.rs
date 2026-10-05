@@ -51,7 +51,10 @@ pub const PRAYER_ROW_COUNT: usize = 6;
 /// The disabled tray-menu lines mirroring today's times: chronological
 /// Fajr(İmsak)/Shurouq/Dhuhr/Asr/Maghrib/Isha, the upcoming one marked.
 /// Pure so the formatting contract stays unit-tested.
-pub fn prayer_menu_rows(payload: &crate::domain::models::TodayPayload, now: NaiveTime) -> Vec<String> {
+pub fn prayer_menu_rows(
+    payload: &crate::domain::models::TodayPayload,
+    now: NaiveTime,
+) -> Vec<String> {
     let imsak_mode = payload.imsak_mode;
     let mut entries: Vec<(String, String)> = Vec::new();
     for (name, time) in adhan_entries(&payload.times.adhan) {
@@ -63,9 +66,8 @@ pub fn prayer_menu_rows(payload: &crate::domain::models::TodayPayload, now: Naiv
     }
 
     // The marker goes on the first entry still ahead of `now`.
-    let next_idx = entries
-        .iter()
-        .position(|(_, t)| parse_menu_time(t).is_some_and(|t| t > now));
+    let next_idx =
+        entries.iter().position(|(_, t)| parse_menu_time(t).is_some_and(|t| t > now));
 
     entries
         .into_iter()
@@ -181,11 +183,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         })
         .build(app)?;
 
-    app.manage(TrayState {
-        tray,
-        next_item,
-        prayer_items,
-    });
+    app.manage(TrayState { tray, next_item, prayer_items });
     Ok(())
 }
 

@@ -7,7 +7,7 @@ use crate::{
     domain::models::{AppConfig, TodayPayload},
     infrastructure::{
         audio,
-        config::{load_config, save_config},
+        config::{cache_dir, load_config, save_config},
     },
 };
 
@@ -17,10 +17,14 @@ pub fn get_config() -> AppConfig {
 }
 
 #[tauri::command]
-pub fn update_config(config: AppConfig, client: State<MawaqitClient>) -> Result<(), String> {
+pub fn update_config(
+    config: AppConfig,
+    client: State<MawaqitClient>,
+) -> Result<(), String> {
     // FINDING F2: a slug reaching the config file must be a real mosque page
     // identifier — `../`, `?`/`#` or encoded variants never get persisted.
-    if !config.mosque_slug.is_empty() && !mawaqit_api::is_valid_slug(&config.mosque_slug) {
+    if !config.mosque_slug.is_empty() && !mawaqit_api::is_valid_slug(&config.mosque_slug)
+    {
         return Err(format!(
             "invalid mosque id {:?} — search for the mosque again",
             config.mosque_slug
@@ -43,7 +47,50 @@ pub async fn search_mosques(
     client: State<'_, MawaqitClient>,
     query: String,
 ) -> Result<Vec<Mosque>, String> {
+    if load_config().offline_mode {
+        return Err("Offline mode is on — turn it off to search for mosques.".into());
+    }
     client.search_mosques(&query).await.map_err(|e| e.to_string())
+}
+
+/// The conf-data source for the configured mosque, honoring offline mode:
+/// online = network (snapshot fallback on failure, client-managed); offline
+/// = the disk snapshot only, never the network.
+async fn conf_for_view(
+    client: &State<'_, MawaqitClient>,
+    config: &AppConfig,
+) -> Result<(std::sync::Arc<mawaqit_api::ConfData>, Option<chrono::NaiveDate>), String> {
+    if config.offline_mode {
+        let (conf, date) = offline_conf_from(&cache_dir(), &config.mosque_slug)?;
+        Ok((std::sync::Arc::new(conf), Some(date)))
+    } else {
+        client.conf_data_dated(&config.mosque_slug).await.map_err(|e| e.to_string())
+    }
+}
+
+/// Snapshot-only load: sync, disk-only, testable without Tauri.
+fn offline_conf_from(
+    dir: &std::path::Path,
+    slug: &str,
+) -> Result<(mawaqit_api::ConfData, chrono::NaiveDate), String> {
+    mawaqit_api::disk::load(dir, slug)
+        .map(|(date, conf)| (conf, date))
+        .ok_or_else(|| {
+            "Offline mode is on, but there is no saved data for this mosque yet — go online once to fetch it.".to_string()
+        })
+}
+
+/// Toggle offline mode. Both directions clear the in-memory page cache so
+/// the next view serves from the newly chosen source, not a stale copy.
+#[tauri::command]
+pub fn set_offline_mode(on: bool, client: State<MawaqitClient>) -> Result<(), String> {
+    let mut config = load_config();
+    if config.offline_mode != on {
+        config.offline_mode = on;
+        client.invalidate(None);
+        save_config(&config);
+    }
+    Ok(())
 }
 
 /// Today's times + mosque metadata for the Today view.
@@ -55,8 +102,7 @@ pub async fn get_today(
     if !config.has_mosque() {
         return Ok(None);
     }
-    let (conf, as_of) =
-        client.conf_data_dated(&config.mosque_slug).await.map_err(|e| e.to_string())?;
+    let (conf, as_of) = conf_for_view(&client, &config).await?;
     let times = mawaqit_api::times_for_date(&conf, chrono::Local::now().date_naive())
         .map_err(|e| e.to_string())?;
     Ok(Some(TodayPayload::from_conf(&conf, times, as_of)))
@@ -71,7 +117,8 @@ pub async fn get_month(
     if !config.has_mosque() {
         return Err("No mosque configured yet.".into());
     }
-    client.month(&config.mosque_slug, month).await.map_err(|e| e.to_string())
+    let (conf, _) = conf_for_view(&client, &config).await?;
+    mawaqit_api::month_times(&conf, month).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -83,7 +130,8 @@ pub async fn get_month_iqama(
     if !config.has_mosque() {
         return Err("No mosque configured yet.".into());
     }
-    client.month_iqama(&config.mosque_slug, month).await.map_err(|e| e.to_string())
+    let (conf, _) = conf_for_view(&client, &config).await?;
+    mawaqit_api::month_iqama_times(&conf, month).map_err(|e| e.to_string())
 }
 
 /// Manually stop a sounding athan (UI stop button). No-op when silent.
@@ -110,4 +158,61 @@ pub fn preview_athan(sound: Option<String>, volume: Option<u8>) -> bool {
         _ => audio::AthanSource::Builtin,
     };
     audio::play_athan(source, volume)
+}
+
+#[cfg(test)]
+mod tests {
+    //! Offline-mode tests: in offline mode the conf data comes from the disk
+    //! snapshot and nothing else — a missing snapshot is a clean, friendly
+    //! error, never a network attempt or a panic.
+
+    use super::*;
+    use std::path::PathBuf;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "mawaqit-offline-{name}-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .subsec_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn sample_page(name: &str) -> String {
+        format!(
+            r#"<script>var confData = {{"times":["06:30","08:00","13:00","15:30","17:45"],
+               "calendar":[{{"1":["06:30","08:00","13:00","15:30","17:45","19:15"]}}],
+               "name":"{name}"}};</script>"#
+        )
+    }
+
+    #[test]
+    fn offline_serves_the_snapshot_when_present() {
+        let dir = temp_dir("hit");
+        let conf = mawaqit_api::parse_page(&sample_page("Snapshot Mosque"), "t").unwrap();
+        mawaqit_api::disk::store(&dir, "my-mosque", &conf).unwrap();
+
+        let (conf, date) = offline_conf_from(&dir, "my-mosque").expect("snapshot serves");
+        assert_eq!(conf.name.as_deref(), Some("Snapshot Mosque"));
+        assert_eq!(date, chrono::Local::now().date_naive());
+    }
+
+    #[test]
+    fn offline_without_a_snapshot_is_a_clean_error() {
+        let dir = temp_dir("miss");
+        let err = offline_conf_from(&dir, "my-mosque").unwrap_err();
+        assert!(err.contains("no saved data"), "unfriendly error: {err}");
+        assert!(err.contains("go online"), "must tell the user the way out: {err}");
+    }
+
+    #[test]
+    fn offline_never_serves_another_mosque() {
+        let dir = temp_dir("isolation");
+        let conf = mawaqit_api::parse_page(&sample_page("A"), "t").unwrap();
+        mawaqit_api::disk::store(&dir, "mosque-a", &conf).unwrap();
+        assert!(offline_conf_from(&dir, "mosque-b").is_err());
+    }
 }

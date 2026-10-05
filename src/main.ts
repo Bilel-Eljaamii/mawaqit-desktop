@@ -39,6 +39,8 @@ interface AppConfig {
   sound_enabled: boolean;
   iqama_alerts: boolean;
   autostart: boolean;
+  /** Serve saved (snapshot) times only; never touch the network for data. */
+  offline_mode: boolean;
   alerts: AlertsConfig;
   /** Ids of mosque announcements the user has read (capped backend-side). */
   announcements_read: string[];
@@ -110,6 +112,7 @@ const DEFAULT_CONFIG: AppConfig = {
   sound_enabled: true,
   iqama_alerts: false,
   autostart: true,
+  offline_mode: false,
   alerts: defaultAlerts(),
   announcements_read: [],
 };
@@ -305,6 +308,40 @@ async function loadToday(): Promise<void> {
   payload = await invoke<TodayPayload | null>("get_today");
   renderToday();
   refreshAnnounceBadge();
+}
+
+// ---- Online / offline toggle ----
+
+function applyOfflineUi(): void {
+  const on = config?.offline_mode ?? false;
+  const btn = $("offline-btn");
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", String(on));
+  btn.title = on
+    ? "Offline mode on — showing saved times only (click to go back online)"
+    : "Go offline — use only the times saved on this device";
+  $("offline-icon-on").hidden = !on;
+  $("offline-icon-off").hidden = on;
+}
+
+async function toggleOffline(): Promise<void> {
+  if (!config) return;
+  const on = !config.offline_mode;
+  try {
+    await invoke("set_offline_mode", { on });
+    config.offline_mode = on;
+    applyOfflineUi();
+    toast(
+      on ? "Offline mode on — showing saved times" : "Back online — times will refresh",
+      false,
+    );
+    await loadToday().catch((e) => toast(`Failed to load prayer times: ${e}`));
+    if (!$("view-month").hidden) {
+      loadMonth();
+    }
+  } catch (e) {
+    toast(`Could not switch offline mode: ${e}`);
+  }
 }
 
 function isPayloadMissing(): boolean {
@@ -772,6 +809,8 @@ async function boot(): Promise<void> {
     config = { ...DEFAULT_CONFIG };
   }
 
+  applyOfflineUi();
+
   if (isConfigured()) {
     showView("today");
     await loadToday().catch((e) => toast(`Failed to load prayer times: ${e}`));
@@ -827,6 +866,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch((e) => console.warn("getVersion failed:", e));
 
   $("settings-btn").addEventListener("click", openSettings);
+  $("offline-btn").addEventListener("click", () => void toggleOffline());
   $("mosque-btn").addEventListener("click", openMosque);
   $("mosque-cancel-btn").addEventListener("click", closeMosque);
   $("announce-btn").addEventListener("click", openAnnounce);

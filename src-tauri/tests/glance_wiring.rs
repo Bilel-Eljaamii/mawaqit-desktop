@@ -49,9 +49,10 @@ fn glance_overlay_is_positioned_and_dismissable() {
 
 #[test]
 fn glance_window_is_declared_in_the_conf() {
-    let conf: Value = serde_json::from_str(include_str!(
-        concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json")
-    ))
+    let conf: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tauri.conf.json"
+    )))
     .expect("tauri.conf.json parses");
     let glance = conf["app"]["windows"]
         .as_array()

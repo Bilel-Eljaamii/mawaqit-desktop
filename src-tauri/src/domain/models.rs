@@ -105,6 +105,10 @@ pub struct AppConfig {
     pub iqama_alerts: bool,
     #[serde(default = "default_true")]
     pub autostart: bool,
+    /// Offline mode: prayer data is served from the disk snapshot only —
+    /// the network is never touched for conf data (search is refused too).
+    #[serde(default)]
+    pub offline_mode: bool,
     #[serde(default)]
     pub alerts: AlertsConfig,
     /// Ids of mosque announcements the user has read. Capped on save.
@@ -124,6 +128,7 @@ impl Default for AppConfig {
             sound_enabled: true,
             iqama_alerts: false,
             autostart: true,
+            offline_mode: false,
             alerts: AlertsConfig::default(),
             announcements_read: Vec::new(),
         }
