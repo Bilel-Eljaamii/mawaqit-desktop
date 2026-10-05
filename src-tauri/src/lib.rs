@@ -64,6 +64,9 @@ pub fn run() {
             presentation::commands::stop_athan,
             presentation::commands::athan_playing,
             presentation::commands::preview_athan,
+            presentation::commands::download_voice,
+            presentation::commands::voice_is_cached,
+            presentation::commands::adhan_voices,
         ])
         .setup(|app| {
             // Make the mawaqit icon show up in the application menu, dock
@@ -241,7 +244,7 @@ async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
         }
 
         if let Some(payload) = &today {
-            tick(&handle, &config, payload, &mut alerted);
+            tick(&handle, &config, payload, &mut alerted, &client);
         }
 
         tokio::time::sleep(Duration::from_secs(60)).await;
@@ -249,11 +252,47 @@ async fn background_loop(handle: tauri::AppHandle, client: MawaqitClient) {
 }
 
 /// One minute-tick of tray update + alert dispatch.
+/// The audio source for one adhan, honoring the per-prayer config:
+/// catalog voice (if cached; an uncached catalog voice downloads in the
+/// background for next time and this adhan falls back to the builtin) —
+/// otherwise the custom file, otherwise the builtin.
+fn resolve_athan_source(
+    alerts: &domain::models::PrayerAlerts,
+    client: &MawaqitClient,
+) -> AthanSource {
+    if let Some(voice) = &alerts.voice {
+        let path = infrastructure::config::voices_dir().join(format!("{voice}.mp3"));
+        if path.is_file() {
+            return AthanSource::File(path);
+        }
+        // Download best-effort in the background so the NEXT adhan uses the
+        // voice; this one plays the builtin instead of blocking the alert.
+        if mawaqit_api::voices::adhan_voice_url(voice).is_some() {
+            let client = client.clone();
+            let voice = voice.clone();
+            tauri::async_runtime::spawn(async move {
+                let dir = infrastructure::config::voices_dir();
+                if let Err(e) =
+                    mawaqit_api::voices::download_voice(&client, &voice, &dir).await
+                {
+                    eprintln!("voice download failed ({voice}): {e}");
+                }
+            });
+        }
+        return AthanSource::Builtin;
+    }
+    match &alerts.sound {
+        Some(path) => AthanSource::File(PathBuf::from(path)),
+        None => AthanSource::Builtin,
+    }
+}
+
 fn tick(
     handle: &tauri::AppHandle,
     config: &AppConfig,
     payload: &TodayPayload,
     alerted: &mut HashSet<String>,
+    client: &MawaqitClient,
 ) {
     let now = Local::now().time();
     let date = Local::now().date_naive();
@@ -307,10 +346,7 @@ fn tick(
                 AthanMode::Default => notify(handle, "Mawaqit", &at_time),
                 AthanMode::Adhan => {
                     notify_stoppable(handle, "Mawaqit", &at_time);
-                    let source = match &alerts.sound {
-                        Some(path) => AthanSource::File(PathBuf::from(path)),
-                        None => AthanSource::Builtin,
-                    };
+                    let source = resolve_athan_source(alerts, client);
                     if infrastructure::audio::play_athan(source, alerts.volume) {
                         // The UI shows its stop button while the athan sounds.
                         let _ = handle.emit("athan-started", ());

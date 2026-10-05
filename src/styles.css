@@ -1086,6 +1086,109 @@ body.glance-mode {
   font-size: 0.92rem;
 }
 
+
+/* ---------- Athan voice sheet ---------- */
+
+.voice-row {
+  cursor: pointer;
+}
+
+.voice-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.voice-current {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-chev {
+  color: var(--text-soft);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.voice-sheet {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-panel);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+}
+
+.voice-sheet-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  color: var(--text-soft);
+  margin-bottom: 10px;
+}
+
+.voice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.voice-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.voice-entry:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.voice-entry.selected {
+  background: rgba(255, 208, 95, 0.1);
+}
+
+.voice-play {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-play:hover {
+  color: var(--accent);
+}
+
+.voice-name {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.voice-state {
+  color: var(--accent);
+  min-width: 18px;
+  text-align: center;
+}
+
+.voice-custom {
+  color: var(--text-soft);
+  justify-content: center;
+  margin-top: 6px;
+}
+
 /* ---------- Toast ---------- */
 #toast {
   position: fixed;

@@ -55,6 +55,10 @@ mawaqit-api = { version = "0.2.0", path = "../../mawaqit-api" }
 - **Tray countdown** — the tray icon carries a small countdown badge (color-coded as the prayer
   approaches) and a tooltip with the exact time; the badge gets out of the way when the next
   prayer is more than an hour and a half away.
+- **Athan voices from the web** — pick a muadhin per prayer (Makkah, Madinah,
+  Al-Aqsa/Qods, Algeria, Egypt + Fajr variants) from Mawaqit's public CDN.
+  Voices download on selection; offline, the built-in athan plays instead —
+  a missing voice never silences or delays the adhan.
 - **Athan with manual stop** — at adhan time: desktop notification + athan audio. Stop it from the
   tray menu, from the button that appears in the app, or from the notification itself (click or
   button on Linux and Windows; on macOS the tray item is the stop path).

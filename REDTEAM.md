@@ -84,6 +84,12 @@ shrink the IPC surface. Search results are rendered unbounded: a hostile
 response with tens of thousands of entries renders that many `<li>` elements
 (bounded by the 20 MB cap, so this is a sluggishness, not a crash).
 
+`tor_socks_addr` and the v0.8.0 per-prayer `voice` ids also come from the
+attacker-writable config: a hostile tor address is a self-DoS (see above),
+and a hostile voice id is bounded twice — `update_config` rejects ids
+outside the static catalog, and playback URLs are built only from the
+catalog constant, never from config strings.
+
 Since v0.4.0 there is a second webview (the `?glance` quick-glance overlay):
 it renders the same IPC data through the same textContent-only rules and is
 capability-covered like `main` — no new IPC surface beyond what `main` already

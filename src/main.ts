@@ -531,6 +531,24 @@ function renderAnnounceList(): void {
   ($("announce-mark-all") as HTMLButtonElement).hidden = unread === 0;
 }
 
+function voiceRow(
+  name: string,
+  selected: boolean,
+  onSelect: () => void,
+): HTMLLIElement {
+  const row = document.createElement("li");
+  row.className = selected ? "voice-entry selected" : "voice-entry";
+  const state = document.createElement("span");
+  state.className = "voice-state";
+  if (selected) state.textContent = "\u2713";
+  const label = document.createElement("span");
+  label.className = "voice-name";
+  label.textContent = name;
+  row.append(state, label);
+  row.addEventListener("click", () => void onSelect());
+  return row;
+}
+
 function el2(cls: string, text?: string): HTMLDivElement {
   const node = document.createElement("div");
   node.className = cls;
@@ -653,6 +671,155 @@ function buildNotifyTabs(): void {
 /// Reflect the draft state of the current prayer into every control. Any
 /// config-derived string lands via textContent (the sound path is
 /// attacker-writable).
+// ---- Athan voice sheet ----
+
+interface VoiceEntry {
+  id: string;
+  name: string;
+  fajr_variant: boolean;
+}
+
+let voiceCatalog: VoiceEntry[] | null = null;
+
+async function ensureVoiceCatalog(): Promise<VoiceEntry[]> {
+  if (!voiceCatalog) {
+    try {
+      voiceCatalog = await invoke<VoiceEntry[]>("adhan_voices");
+    } catch (e) {
+      console.warn("voice catalog failed:", e);
+      voiceCatalog = [];
+    }
+  }
+  return voiceCatalog;
+}
+
+/// Human label for whatever the active prayer's athan source is.
+function voiceSourceLabel(alerts: { voice: string | null; sound: string | null }): string {
+  if (alerts.voice) {
+    const entry = voiceCatalog?.find((v) => v.id === alerts.voice);
+    return entry ? entry.name : alerts.voice;
+  }
+  if (alerts.sound) return "Custom file";
+  return "Built-in athan";
+}
+
+/// Whether a voice is already downloaded (cached mp3 in the voices dir).
+async function voiceIsCached(id: string): Promise<boolean> {
+  try {
+    return await invoke<boolean>("voice_is_cached", { id });
+  } catch {
+    return false;
+  }
+}
+
+function toggleVoiceSheetSync(): void {
+  $("voice-sheet").hidden = !$("voice-sheet").hidden;
+}
+
+async function toggleVoiceSheet(): Promise<void> {
+  toggleVoiceSheetSync();
+  if ($("voice-sheet").hidden) return;
+  await renderVoiceList();
+}
+
+function isFajrTab(tab: PrayerKey): boolean {
+  return tab === "fajr";
+}
+
+async function renderVoiceList(): Promise<void> {
+  const list = $("voice-list");
+  list.replaceChildren();
+
+  const voices = await ensureVoiceCatalog();
+  const alerts = alertsDraft[notifyTab];
+  const fajrTab = isFajrTab(notifyTab);
+  const entries = voices.filter((v) => fajrTab || !v.fajr_variant);
+
+  // Built-in athan is always first and always available.
+  list.appendChild(voiceRow("Built-in athan", alerts.voice === null, async () => {
+    alertsDraft[notifyTab].voice = null;
+    await persistAlerts();
+    syncNotifyPanel();
+  }));
+
+  for (const v of entries) {
+    const selected = alerts.voice === v.id;
+    const row = document.createElement("li");
+    row.className = "voice-entry";
+    row.dataset.id = v.id;
+
+    const play = document.createElement("button");
+    play.className = "voice-play";
+    play.type = "button";
+    play.title = "Preview";
+    play.textContent = "\u25B6";
+    play.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        await invoke("preview_athan", {
+          sound: null,
+          voiceId: v.id,
+          volume: alerts.volume,
+        });
+        await refreshAthanButton();
+      } catch (err) {
+        toast(`Preview failed: ${err}`);
+      }
+    });
+    row.appendChild(play);
+
+    const name = document.createElement("span");
+    name.className = "voice-name";
+    name.textContent = v.name;
+    row.appendChild(name);
+
+    const state = document.createElement("span");
+    state.className = "voice-state";
+    if (selected) {
+      state.textContent = "\u2713";
+      row.classList.add("selected");
+    } else {
+      void voiceIsCached(v.id).then((cached) => {
+        if (!cached) state.textContent = "\u2934"; // needs download
+      });
+    }
+    row.appendChild(state);
+
+    row.addEventListener("click", async () => {
+      alertsDraft[notifyTab].voice = v.id;
+      // A catalog voice supersedes the custom file for this prayer.
+      alertsDraft[notifyTab].sound = null;
+      try {
+        await invoke("download_voice", { voiceId: v.id });
+      } catch (e) {
+        // Offline or CDN down: keep the selection (builtin fallback plays);
+        // the next adhan retries the download.
+        toast(`Voice not downloaded yet — builtin athan will play: ${e}`);
+      }
+      await persistAlerts();
+      syncNotifyPanel();
+      await renderVoiceList();
+    });
+    list.appendChild(row);
+  }
+
+  // Custom file entry last, like the old select's "custom" option.
+  const customRow = document.createElement("li");
+  customRow.className = "voice-entry voice-custom";
+  customRow.textContent = "Custom file\u2026";
+  customRow.addEventListener("click", async () => {
+    const picked = await pickSoundFile();
+    if (picked) {
+      alertsDraft[notifyTab].voice = null;
+      alertsDraft[notifyTab].sound = picked;
+      await persistAlerts();
+      syncNotifyPanel();
+      toggleVoiceSheetSync();
+    }
+  });
+  list.appendChild(customRow);
+}
+
 function syncNotifyPanel(): void {
   document.querySelectorAll("#notify-tabs .notify-tab").forEach((tab) => {
     tab.classList.toggle("active", (tab as HTMLElement).dataset.prayer === notifyTab);
@@ -664,11 +831,7 @@ function syncNotifyPanel(): void {
   });
 
   $("adhan-options").hidden = alerts.mode !== "adhan";
-  const hasCustom = !!alerts.sound;
-  ($("notify-sound-select") as HTMLSelectElement).value = hasCustom ? "custom" : "";
-  const path = $("notify-sound-path");
-  path.hidden = !hasCustom;
-  path.textContent = alerts.sound ?? "";
+  $("voice-current").textContent = voiceSourceLabel(alerts);
 
   const volumeOn = alerts.volume !== null;
   ($("notify-volume-toggle") as HTMLInputElement).checked = volumeOn;
@@ -913,29 +1076,14 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   });
 
-  $("notify-sound-select").addEventListener("change", async () => {
-    const select = $("notify-sound-select") as HTMLSelectElement;
-    if (select.value === "custom") {
-      const picked = await pickSoundFile();
-      if (picked) {
-        alertsDraft[notifyTab].sound = picked;
-        await persistAlerts();
-      } else {
-        // Picker cancelled: fall back to whatever the draft still holds.
-        select.value = alertsDraft[notifyTab].sound ? "custom" : "";
-        return;
-      }
-    } else {
-      alertsDraft[notifyTab].sound = null;
-      await persistAlerts();
-    }
-    syncNotifyPanel();
-  });
-
+  // Athan voice sheet.
+  $("voice-row").addEventListener("click", () => void toggleVoiceSheet());
   $("notify-preview").addEventListener("click", async () => {
     const alerts = alertsDraft[notifyTab];
+    const voiceId = alerts.voice ?? null;
+    const sound = voiceId ? null : alerts.sound;
     try {
-      await invoke("preview_athan", { sound: alerts.sound, volume: alerts.volume });
+      await invoke("preview_athan", { sound, voiceId, volume: alerts.volume });
       await refreshAthanButton();
     } catch (e) {
       toast(`Preview failed: ${e}`);

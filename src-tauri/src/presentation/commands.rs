@@ -67,6 +67,22 @@ pub fn update_config(
             ));
         }
     }
+    // Voice ids are catalog keys: a known id resolves to a CDN URL; an
+    // unknown one would silently never play, so reject it at save time.
+    for voice in [
+        &config.alerts.fajr.voice,
+        &config.alerts.dhuhr.voice,
+        &config.alerts.asr.voice,
+        &config.alerts.maghrib.voice,
+        &config.alerts.isha.voice,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if mawaqit_api::voices::adhan_voice_url(voice).is_none() {
+            return Err(format!("unknown adhan voice {voice:?}"));
+        }
+    }
     // The legacy global switch stays in the file for downgrades; whatever the
     // caller sent, it must agree with the per-prayer settings that now rule.
     let mut config = config;
@@ -183,18 +199,61 @@ pub fn athan_playing() -> bool {
     audio::is_playing()
 }
 
-/// Play the athan on demand (notification panel's preview button). `sound`
-/// is a custom audio file path, or empty/null for the built-in athan;
-/// `volume` is 0–100 percent.
+/// Play the athan on demand (notification panel's preview button). A
+/// `voice_id` that is already cached beats a custom file path; an uncached
+/// voice previews as the built-in athan (the download starts separately
+/// from the panel). `sound` is a custom audio file path, or empty/null for
+/// the built-in athan; `volume` is 0–100 percent.
 #[tauri::command]
-pub fn preview_athan(sound: Option<String>, volume: Option<u8>) -> bool {
-    let source = match sound.as_deref() {
-        Some(path) if !path.trim().is_empty() => {
-            audio::AthanSource::File(PathBuf::from(path))
-        }
-        _ => audio::AthanSource::Builtin,
+pub fn preview_athan(
+    sound: Option<String>,
+    voice_id: Option<String>,
+    volume: Option<u8>,
+) -> bool {
+    let voice_file = voice_id
+        .as_deref()
+        .map(|id| crate::infrastructure::config::voices_dir().join(format!("{id}.mp3")))
+        .filter(|p| p.is_file());
+    let source = match voice_file {
+        Some(path) => audio::AthanSource::File(path),
+        None => match sound.as_deref() {
+            Some(path) if !path.trim().is_empty() => {
+                audio::AthanSource::File(PathBuf::from(path))
+            }
+            _ => audio::AthanSource::Builtin,
+        },
     };
     audio::play_athan(source, volume)
+}
+
+/// Whether a catalog voice is already downloaded (drives the sheet's
+/// "needs download" marker).
+#[tauri::command]
+pub fn voice_is_cached(voice_id: String) -> bool {
+    crate::infrastructure::config::voices_dir()
+        .join(format!("{voice_id}.mp3"))
+        .is_file()
+}
+
+/// Download a catalog voice into the voices cache. Used by the panel's
+/// picker (with a spinner) and at startup for the selected voice.
+/// The adhan voice catalog for the notifications panel's voice sheet
+/// (drift-proof: the UI renders what Rust exposes, no TS mirror).
+#[tauri::command]
+pub fn adhan_voices() -> Vec<mawaqit_api::AdhanVoice> {
+    mawaqit_api::voices::ADHAN_VOICES.to_vec()
+}
+
+#[tauri::command]
+pub async fn download_voice(
+    client: State<'_, MawaqitClient>,
+    voice_id: String,
+) -> Result<(), String> {
+    let dir = crate::infrastructure::config::voices_dir();
+    mawaqit_api::voices::download_voice(client.inner(), &voice_id, &dir)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

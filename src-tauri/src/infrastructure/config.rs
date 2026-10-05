@@ -18,6 +18,16 @@ pub fn cache_dir() -> PathBuf {
         .join("times-cache")
 }
 
+
+/// Downloaded adhan-voice files (one mp3 per catalog voice id, see
+/// `mawaqit_api::voices`).
+pub fn voices_dir() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("mawaqit-desktop")
+        .join("voices")
+}
+
 pub fn load_config() -> AppConfig {
     load_config_from(&get_config_path())
 }

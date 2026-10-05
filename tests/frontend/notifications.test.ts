@@ -27,6 +27,7 @@ describe("defaults and legacy seeding", () => {
     for (const key of PRAYER_ALERT_KEYS) {
       expect(alerts[key]).toEqual({
         mode: "adhan",
+        voice: null,
         sound: null,
         volume: null,
         notify_before_min: null,
@@ -105,6 +106,7 @@ describe("normalizeAlerts with hostile payloads", () => {
     );
     expect(alerts.fajr).toEqual({
       mode: "default",
+      voice: null,
       sound: null,
       volume: null,
       notify_before_min: 5,

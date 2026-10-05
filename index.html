@@ -200,15 +200,19 @@
       </div>
 
       <div id="adhan-options">
-        <div class="row-card">
-          <span class="row-label">Sound</span>
-          <select id="notify-sound-select" class="select">
-            <option value="">Built-in athan</option>
-            <option value="custom">Custom file…</option>
-          </select>
-          <button id="notify-preview" class="btn btn-small" type="button">&#9654; Preview</button>
+        <div class="row-card voice-row" id="voice-row" title="Choose the adhan voice">
+          <span class="row-label">Athan voice</span>
+          <span class="row-spacer"></span>
+          <span id="voice-current" class="voice-current">Built-in athan</span>
+          <span class="voice-chev">&rsaquo;</span>
         </div>
-        <div id="notify-sound-path" class="sound-path" hidden></div>
+        <div id="voice-sheet" class="voice-sheet" hidden>
+          <div class="voice-sheet-head">
+            <span>Athan</span>
+            <span>Custom file</span>
+          </div>
+          <ul id="voice-list" class="voice-list"></ul>
+        </div>
         <div class="row-card">
           <span class="row-label">Custom volume</span>
           <span class="row-spacer"></span>
@@ -217,6 +221,11 @@
         <div class="row-card" id="notify-volume-row" hidden>
           <input type="range" id="notify-volume" min="0" max="100" step="1" />
           <span id="notify-volume-value" class="mono">100%</span>
+        </div>
+        <div class="row-card">
+          <span class="row-label">Preview</span>
+          <span class="row-spacer"></span>
+          <button id="notify-preview" class="btn btn-small" type="button">&#9654; Play</button>
         </div>
       </div>
 

@@ -29,6 +29,11 @@ pub struct PrayerAlerts {
     /// as the user can write — it is treated as audio input only.
     #[serde(default)]
     pub sound: Option<String>,
+    /// Adhan voice from the catalog (`mawaqit_api::ADHAN_VOICES`) — takes
+    /// precedence over `sound`. `None` = builtin embedded athan (also the
+    /// fallback when the voice file is not cached and cannot be downloaded).
+    #[serde(default)]
+    pub voice: Option<String>,
     /// 0–100; `None` follows the system volume.
     #[serde(default)]
     pub volume: Option<u8>,

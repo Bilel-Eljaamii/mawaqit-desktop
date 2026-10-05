@@ -12,6 +12,8 @@ export type AthanMode = "silent" | "default" | "adhan";
 
 export interface PrayerAlerts {
   mode: AthanMode;
+  /** Catalog voice id (mawaqit-api ADHAN_VOICES); null = builtin/custom. */
+  voice: string | null;
   /** null = built-in athan; otherwise an absolute path to an mp3/wav file. */
   sound: string | null;
   /** 0–100 percent, or null to follow the system volume. */
@@ -52,7 +54,7 @@ export const MODE_LABELS: Record<AthanMode, string> = {
 // ---- Factories & coercion ----
 
 export function defaultPrayerAlerts(): PrayerAlerts {
-  return { mode: "adhan", sound: null, volume: null, notify_before_min: null };
+  return { mode: "adhan", voice: null, sound: null, volume: null, notify_before_min: null };
 }
 
 export function defaultAlerts(): AlertsConfig {
@@ -119,6 +121,7 @@ function normalizePrayerAlerts(raw: unknown): PrayerAlerts | null {
     sound: saneSound,
     volume: saneVolume,
     notify_before_min: saneBefore,
+    voice: null,
   };
 }
 
