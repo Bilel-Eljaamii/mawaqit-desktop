@@ -40,6 +40,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # src-tauri depends on the sibling mawaqit-api via a relative path
+      # (../../mawaqit-api). Place that public repo exactly where cargo
+      # resolves it: one level above the desktop checkout.
+      - name: checkout sibling mawaqit-api
+        run: git clone --depth 1 https://github.com/Bilel-Eljaamii/mawaqit-api.git ../mawaqit-api
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -91,6 +97,12 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+
+      # src-tauri depends on the sibling mawaqit-api via a relative path
+      # (../../mawaqit-api). Place that public repo exactly where cargo
+      # resolves it: one level above the desktop checkout.
+      - name: checkout sibling mawaqit-api
+        run: git clone --depth 1 https://github.com/Bilel-Eljaamii/mawaqit-api.git ../mawaqit-api
 
       - name: setup pnpm
         uses: pnpm/action-setup@v4

@@ -1,0 +1,18 @@
+# Dependabot scope: GitHub Actions only.
+#
+# Cargo updates are deliberately excluded: src-tauri depends on the sibling
+# mawaqit-api via a path outside this repository (../../mawaqit-api), so
+# Dependabot cannot resolve the workspace and every cargo update attempt
+# fails (see the red "Dependabot Updates" runs). Revisit when mawaqit-api
+# is published to crates.io or vendored back into this repo.
+#
+# Known open security alert handled outside Dependabot: glib < 0.20
+# (unsound VariantStrIter iterators) arrives transitively through
+# tauri 2.x's gtk 0.18 stack — no patched stack exists yet; the app does
+# not use glib directly. Re-check when tauri bumps gtk-rs to 0.20.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
