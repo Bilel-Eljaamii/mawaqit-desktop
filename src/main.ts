@@ -24,12 +24,13 @@ import {
 } from "./lib/notifications";
 import type { AlertsConfig, AthanMode, PrayerKey } from "./lib/notifications";
 import {
+  announcementImageUrl,
   markAllRead as markAllReadHelper,
   markRead as markReadHelper,
   unreadCount as countUnread,
   visibleAnnouncements,
+  type AnnouncementItem,
 } from "./lib/announcements";
-import type { AnnouncementItem } from "./lib/announcements";
 
 // ---- Types mirroring the Rust serde structs ----
 
@@ -522,6 +523,19 @@ function renderAnnounceList(): void {
     body.appendChild(head);
     if (a.title !== null && a.content !== null && a.content.trim() !== "") {
       body.appendChild(el2("announce-content", a.content));
+    }
+    const imgSrc = announcementImageUrl(a.image);
+    if (imgSrc) {
+      const img = document.createElement("img");
+      img.className = "announce-image";
+      img.alt = a.title ?? "Announcement image";
+      img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.src = imgSrc;
+      // Offline mode / dead CDN link: drop the frame instead of showing a
+      // broken-image glyph.
+      img.addEventListener("error", () => img.remove());
+      body.appendChild(img);
     }
     const meta = [a.start_date, a.end_date].filter(Boolean).join(" → ");
     if (meta) {

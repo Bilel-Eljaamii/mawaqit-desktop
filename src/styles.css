@@ -1078,6 +1078,19 @@ body.glance-mode {
   word-break: break-word;
 }
 
+/* Mosque-uploaded banner image. Never wider than the row; hidden entirely
+ * when it fails to load (offline mode / dead link). */
+.announce-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 260px;
+  object-fit: cover;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
 .announce-date {
   color: var(--text-soft);
   font-size: 0.75rem;

@@ -4,6 +4,7 @@
  * and size-capped. */
 import { describe, expect, it } from "vitest";
 import {
+  announcementImageUrl,
   MAX_INBOX_ITEMS,
   MAX_READ_ENTRIES,
   markAllRead,
@@ -16,8 +17,44 @@ import {
 import type { AnnouncementItem } from "../../src/lib/announcements";
 
 function item(id: string): AnnouncementItem {
-  return { id, title: `T ${id}`, content: `C ${id}`, start_date: null, end_date: null };
+  return {
+    id,
+    title: `T ${id}`,
+    content: `C ${id}`,
+    image: null,
+    start_date: null,
+    end_date: null,
+  };
 }
+
+describe("announcementImageUrl", () => {
+  it("passes plain http(s) urls through", () => {
+    expect(announcementImageUrl("https://pics.test/a.jpg")).toBe("https://pics.test/a.jpg");
+    expect(announcementImageUrl("http://cdn.test/a.jpg")).toBe("http://cdn.test/a.jpg");
+    expect(announcementImageUrl("  https://pics.test/a.jpg  ")).toBe("https://pics.test/a.jpg");
+  });
+
+  it("rejects every non-http scheme and garbage", () => {
+    const hostile = [
+      null,
+      undefined,
+      "",
+      "   ",
+      "javascript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+      "data:image/png;base64,AAAA",
+      "vbscript:x",
+      "file:///etc/passwd",
+      "//cdn.test/a.jpg",
+      "pics.test/a.jpg",
+      "https:/pics.test/a.jpg",
+      "<script>alert(1)</script>",
+    ];
+    for (const raw of hostile) {
+      expect(announcementImageUrl(raw as never)).toBeNull(`must reject ${JSON.stringify(raw)}`);
+    }
+  });
+});
 
 describe("visibleAnnouncements", () => {
   it("caps the inbox at MAX_INBOX_ITEMS, keeping wire order", () => {

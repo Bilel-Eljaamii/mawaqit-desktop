@@ -233,6 +233,9 @@ pub struct AnnouncementDto {
     pub id: String,
     pub title: Option<String>,
     pub content: Option<String>,
+    /// Banner image URL (mosque-uploaded). Loaded by the webview under the
+    /// CSP's img-src allowlist, never fetched by the backend.
+    pub image: Option<String>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
 }
@@ -294,6 +297,7 @@ impl TodayPayload {
                     id: announcement_key(a),
                     title: a.title.clone(),
                     content: a.content.clone(),
+                    image: a.image.clone(),
                     start_date: a.start_date.clone(),
                     end_date: a.end_date.clone(),
                 })
@@ -375,5 +379,40 @@ mod tor_proxy_tests {
             external.socks5h_url().as_deref(),
             Some("socks5h://127.0.0.1:9150")
         );
+    }
+}
+
+#[cfg(test)]
+mod announcement_tests {
+    use super::*;
+
+    fn payload_with_announcement(image_json: &str) -> TodayPayload {
+        let page = format!(
+            concat!(
+                r#"<script>var confData = {{"times":["06:30","08:00","13:00","15:30","17:45"],"#,
+                r#""calendar":[{{"1":["06:30","08:00","13:00","15:30","17:45","19:15"]}}],"#,
+                r#""announcements":[{{"id":7,"title":"Iftar","content":"Bring a plate","image":{image_json}}}]}};"#,
+                r#"</script>"#
+            ),
+            image_json = image_json
+        );
+        let conf = mawaqit_api::parse_page(&page, "t").expect("page parses");
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+        let times = mawaqit_api::times_for_date(&conf, date).expect("times");
+        TodayPayload::from_conf(&conf, times, None)
+    }
+
+    #[test]
+    fn announcement_image_flows_to_the_dto() {
+        let payload = payload_with_announcement("\"https://pics.test/iftar.jpg\"");
+        let a = &payload.announcements[0];
+        assert_eq!(a.image.as_deref(), Some("https://pics.test/iftar.jpg"));
+        assert_eq!(a.title.as_deref(), Some("Iftar"));
+    }
+
+    #[test]
+    fn announcement_without_image_is_none_not_a_broken_field() {
+        let payload = payload_with_announcement("null");
+        assert_eq!(payload.announcements[0].image, None);
     }
 }

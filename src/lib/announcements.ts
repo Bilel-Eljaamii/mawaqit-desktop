@@ -8,8 +8,21 @@ export interface AnnouncementItem {
   id: string;
   title: string | null;
   content: string | null;
+  /** Mosque-uploaded banner image URL (http/https), or null. */
+  image: string | null;
   start_date: string | null;
   end_date: string | null;
+}
+
+/** The announcement's image URL, or null when absent or not a plain
+ * http(s) URL — the string is attacker-influenced, and the webview must
+ * never be handed javascript:, data: or anything else exotic. (The CSP
+ * img-src allowlist is the backstop; this is the front door.) */
+export function announcementImageUrl(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const url = raw.trim();
+  if (!/^https?:\/\//i.test(url)) return null;
+  return url;
 }
 
 /** The inbox never renders more than this many items — a hostile page with
