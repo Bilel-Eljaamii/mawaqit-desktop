@@ -12,7 +12,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # src-tauri depends on the sibling mawaqit-api via a relative path
       # (../../mawaqit-api). Place that public repo exactly where cargo
