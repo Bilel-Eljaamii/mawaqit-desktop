@@ -18,7 +18,6 @@ pub fn get_config() -> AppConfig {
     load_config()
 }
 
-
 #[tauri::command]
 pub fn update_config(
     config: AppConfig,
@@ -26,8 +25,9 @@ pub fn update_config(
     builtin: State<BuiltinTor>,
 ) -> Result<(), String> {
     let previous = load_config();
-    let validated =
-        crate::application::settings::validate_and_apply_update(&client, &builtin, &previous, config)?;
+    let validated = crate::application::settings::validate_and_apply_update(
+        &client, &builtin, &previous, config,
+    )?;
     save_config(&validated);
     Ok(())
 }
@@ -37,11 +37,32 @@ pub async fn search_mosques(
     client: State<'_, ClientHolder>,
     query: String,
 ) -> Result<Vec<Mosque>, String> {
-    if load_config().offline_mode {
+    let config = load_config();
+    if config.offline_mode {
         return Err("Offline mode is on — turn it off to search for mosques.".into());
     }
     let client = client.current();
-    client.search_mosques(&query).await.map_err(|e| e.to_string())
+    client.search_mosques(&query).await.map_err(|e| transport_err(&config, e.to_string()))
+}
+
+/// Map a transport error to a user-facing string. Under Tor mode the
+/// no-fallback policy routes every request into the configured proxy, so a
+/// dead proxy black-holes everything and reqwest surfaces it as the
+/// useless "error sending request for url …" — say what actually happened
+/// and how to get unstuck instead.
+fn transport_err(config: &AppConfig, msg: String) -> String {
+    let connection_shaped = msg.contains("error sending request");
+    if config.tor.enabled && connection_shaped {
+        let addr = if config.tor.builtin {
+            format!("127.0.0.1:{}", crate::infrastructure::builtin_tor::BUILTIN_TOR_PORT)
+        } else {
+            format!("{}:{}", config.tor.host, config.tor.port)
+        };
+        return format!(
+            "Tor is on, but its proxy at {addr} did not answer — start your tor service (or Tor Browser), or turn Tor off in the settings. ({msg})"
+        );
+    }
+    msg
 }
 
 /// The conf-data source for the configured mosque, honoring offline mode:
@@ -56,7 +77,10 @@ async fn conf_for_view(
         let (conf, date) = offline_conf_from(&cache_dir(), &config.mosque_slug)?;
         Ok((std::sync::Arc::new(conf), Some(date)))
     } else {
-        client.conf_data_dated(&config.mosque_slug).await.map_err(|e| e.to_string())
+        client
+            .conf_data_dated(&config.mosque_slug)
+            .await
+            .map_err(|e| transport_err(&config, e.to_string()))
     }
 }
 
@@ -167,8 +191,7 @@ pub async fn preview_athan(
     let voice_file = match voice_id.as_deref() {
         Some(id) => {
             let dir = crate::infrastructure::config::voices_dir();
-            match mawaqit_api::voices::download_voice(&client.current(), id, &dir).await
-            {
+            match mawaqit_api::voices::download_voice(&client.current(), id, &dir).await {
                 Ok(path) => Some(path),
                 // Download failed (offline/CDN down): builtin fallback.
                 Err(e) => {
@@ -195,9 +218,7 @@ pub async fn preview_athan(
 /// "needs download" marker).
 #[tauri::command]
 pub fn voice_is_cached(voice_id: String) -> bool {
-    crate::infrastructure::config::voices_dir()
-        .join(format!("{voice_id}.mp3"))
-        .is_file()
+    crate::infrastructure::config::voices_dir().join(format!("{voice_id}.mp3")).is_file()
 }
 
 /// Download a catalog voice into the voices cache. Used by the panel's
@@ -268,6 +289,68 @@ mod tests {
         let err = offline_conf_from(&dir, "my-mosque").unwrap_err();
         assert!(err.contains("no saved data"), "unfriendly error: {err}");
         assert!(err.contains("go online"), "must tell the user the way out: {err}");
+    }
+
+    #[test]
+    fn dead_tor_proxy_error_names_the_proxy_and_the_way_out() {
+        use crate::domain::models::{TorProxy, DEFAULT_TOR_HOST};
+
+        let tor_on = AppConfig {
+            tor: TorProxy {
+                enabled: true,
+                host: DEFAULT_TOR_HOST.into(),
+                port: 9050,
+                builtin: false,
+            },
+            ..AppConfig::default()
+        };
+        let msg = transport_err(
+            &tor_on,
+            "HTTP request failed: error sending request for url (https://mawaqit.net/api/2.0/mosque/search?word=zitouna)".into(),
+        );
+        assert!(msg.contains("Tor is on"), "must name Tor: {msg}");
+        assert!(msg.contains("127.0.0.1:9050"), "must name the proxy: {msg}");
+        assert!(msg.contains("turn Tor off"), "must offer the way out: {msg}");
+        // The original detail stays available for diagnosis.
+        assert!(msg.contains("error sending request"), "{msg}");
+    }
+
+    #[test]
+    fn builtin_tor_reports_the_builtin_port() {
+        use crate::domain::models::TorProxy;
+
+        let builtin_on = AppConfig {
+            tor: TorProxy { enabled: true, builtin: true, ..TorProxy::default() },
+            ..AppConfig::default()
+        };
+        let msg = transport_err(
+            &builtin_on,
+            "HTTP request failed: error sending request for url (https://mawaqit.net/en/x)".into(),
+        );
+        assert!(
+            msg.contains(&format!(
+                "127.0.0.1:{}",
+                crate::infrastructure::builtin_tor::BUILTIN_TOR_PORT
+            )),
+            "{msg}"
+        );
+    }
+
+    #[test]
+    fn non_connection_errors_and_tor_off_pass_through() {
+        let default_cfg = AppConfig::default();
+        let parse_err = "malformed payload: confData: boom".to_string();
+        assert_eq!(transport_err(&default_cfg, parse_err.clone()), parse_err);
+
+        let tor_on = AppConfig {
+            tor: crate::domain::models::TorProxy {
+                enabled: true,
+                ..crate::domain::models::TorProxy::default()
+            },
+            ..AppConfig::default()
+        };
+        // A parse failure under Tor is not a transport problem: untouched.
+        assert_eq!(transport_err(&tor_on, parse_err.clone()), parse_err);
     }
 
     #[test]
