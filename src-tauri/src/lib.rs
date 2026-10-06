@@ -376,7 +376,7 @@ fn notify_stoppable(handle: &tauri::AppHandle, title: &str, body: &str) {
         let app_id = handle.config().identifier.clone();
         let _ = tauri_winrt_notification::Toast::new(&app_id)
             .title(title)
-            .text(body)
+            .text1(body)
             .add_button("Stop athan", "stop")
             .on_activated(|action| {
                 if action.as_deref() == Some("stop") {
