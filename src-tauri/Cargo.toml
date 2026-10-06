@@ -37,6 +37,12 @@ tauri-plugin-global-shortcut = "=2.4.0"
 # infrastructure/builtin_tor.rs). Exact-pinned — 0.x API churns between
 # minors, same drift trap as the tauri plugin pins. MSRV 1.92.
 arti-client = { version = "=0.47.0", optional = true }
+# tor-dirmgr (via arti-client) uses rusqlite WITHOUT bundled sqlite: on
+# non-Linux hosts that dies at link time ("cannot open input file
+# 'sqlite3.lib'" — first Windows CI build). Arti's application notes tell
+# embedders to enable the bundled feature; it compiles sqlite from source
+# on every platform, which also makes the Linux builds self-contained.
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 # Adhan notification with a "Stop athan" button on Windows.
