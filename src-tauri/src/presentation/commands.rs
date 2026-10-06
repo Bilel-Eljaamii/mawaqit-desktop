@@ -42,7 +42,51 @@ pub async fn search_mosques(
         return Err("Offline mode is on — turn it off to search for mosques.".into());
     }
     let client = client.current();
+    // mawaqit.net disabled the keyless search API (HTTP 401 — their own
+    // site now sits behind a backoffice login). The public mosque PAGES
+    // still serve confData, so a query that names a page — a full
+    // mawaqit.net URL or a bare slug — resolves directly against the page.
+    if let Some(slug) = slug_from_input(&query) {
+        return match client.conf_data(&slug).await {
+            Ok(conf) => Ok(vec![Mosque {
+                uuid: None,
+                id: None,
+                slug: Some(slug),
+                name: conf.name.clone(),
+                label: None,
+                locality: None,
+                country: None,
+                extra: serde_json::Map::new(),
+            }]),
+            Err(e) => Err(transport_err(&config, e.to_string())),
+        };
+    }
     client.search_mosques(&query).await.map_err(|e| transport_err(&config, e.to_string()))
+}
+
+/// Extract a mosque page slug from a user query: a full mawaqit.net URL
+/// (with or without the language segment) or a bare slug. Anything else —
+/// multi-word or punctuated — is a search term, not a slug.
+fn slug_from_input(query: &str) -> Option<String> {
+    let q = query.trim();
+    let candidate = if let Some(pos) = q.find("mawaqit.net/") {
+        let after = &q[pos + "mawaqit.net/".len()..];
+        match after.split_once('/') {
+            Some((lang, rest)) if lang.len() == 2 => rest,
+            _ => after,
+        }
+    } else if q.contains([' ', '.', '?', '#', '/']) || q.len() < 3 {
+        return None;
+    } else {
+        q
+    };
+    let slug =
+        candidate.trim_matches('/').split(['?', '#']).next().unwrap_or("").to_string();
+    if mawaqit_api::is_valid_slug(&slug) {
+        Some(slug)
+    } else {
+        None
+    }
 }
 
 /// Map a transport error to a user-facing string. Under Tor mode the
@@ -60,6 +104,13 @@ fn transport_err(config: &AppConfig, msg: String) -> String {
         };
         return format!(
             "Tor is on, but its proxy at {addr} did not answer — start your tor service (or Tor Browser), or turn Tor off in the settings. ({msg})"
+        );
+    }
+    // mawaqit.net rejected the request as unauthenticated: the search API
+    // now requires credentials (the public mosque pages still work).
+    if msg.contains("(HTTP 401)") {
+        return format!(
+            "{msg} — mawaqit.net has locked its search API behind a login. Paste a mosque page link (https://mawaqit.net/en/<slug>) into the search box to connect to a mosque."
         );
     }
     msg
@@ -351,6 +402,48 @@ mod tests {
         };
         // A parse failure under Tor is not a transport problem: untouched.
         assert_eq!(transport_err(&tor_on, parse_err.clone()), parse_err);
+    }
+
+    #[test]
+    fn slug_from_input_parses_urls_and_bare_slugs() {
+        assert_eq!(
+            slug_from_input("https://mawaqit.net/en/grande-mosquee-de-paris").as_deref(),
+            Some("grande-mosquee-de-paris")
+        );
+        assert_eq!(
+            slug_from_input("https://mawaqit.net/grande-mosquee-de-paris").as_deref(),
+            Some("grande-mosquee-de-paris")
+        );
+        assert_eq!(
+            slug_from_input("https://mawaqit.net/en/x?utm=mail#top").as_deref(),
+            Some("x")
+        );
+        assert_eq!(
+            slug_from_input("grande-mosquee-de-paris").as_deref(),
+            Some("grande-mosquee-de-paris")
+        );
+        assert_eq!(slug_from_input("  paris  ").as_deref(), Some("paris"));
+        // Search terms are not slugs.
+        assert_eq!(slug_from_input("grand mosque paris"), None);
+        assert_eq!(slug_from_input("paris, france"), None);
+        assert_eq!(slug_from_input("ab"), None, "too short");
+        assert_eq!(
+            slug_from_input("https://example.com/en/x"),
+            None,
+            "foreign URL is a search term"
+        );
+        assert_eq!(slug_from_input("bad slug!"), None);
+    }
+
+    #[test]
+    fn unauthorized_search_error_tells_the_user_the_way_out() {
+        let cfg = AppConfig::default();
+        let msg = transport_err(
+            &cfg,
+            "unexpected response (HTTP 401) from https://mawaqit.net/api/2.0/mosque/search".into(),
+        );
+        assert!(msg.contains("locked its search API"), "{msg}");
+        assert!(msg.contains("Paste a mosque page link"), "{msg}");
     }
 
     #[test]
