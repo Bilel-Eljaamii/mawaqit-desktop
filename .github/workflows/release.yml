@@ -46,6 +46,14 @@ jobs:
       - name: checkout sibling mawaqit-api
         run: git clone --depth 1 https://github.com/Bilel-Eljaamii/mawaqit-api.git ../mawaqit-api
 
+      # The rust gates build the full tauri/gtk stack on Linux: without
+      # these system libraries glib-sys's pkg-config probe fails (the
+      # first tagged run died exactly there).
+      - name: install dependencies (ubuntu only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libasound2-dev patchelf
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
