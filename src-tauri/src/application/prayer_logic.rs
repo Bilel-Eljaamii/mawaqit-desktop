@@ -8,9 +8,11 @@ pub struct NextPrayerInfo {
     pub minutes_remaining: i64,
 }
 
+type AdhanTimeFn = fn(&DailyPrayerTimes) -> &str;
+type IqamaTimeFn = fn(&DailyIqamaTimes) -> &str;
+
 /// The five prayers that get an adhan (shurouq/sunrise has none).
-pub const PRAYERS: [(&str, fn(&DailyPrayerTimes) -> &str, fn(&DailyIqamaTimes) -> &str);
-    5] = [
+pub const PRAYERS: [(&str, AdhanTimeFn, IqamaTimeFn); 5] = [
     ("Fajr", |t| &t.fajr, |t| &t.fajr),
     ("Dhuhr", |t| &t.dhuhr, |t| &t.dhuhr),
     ("Asr", |t| &t.asr, |t| &t.asr),

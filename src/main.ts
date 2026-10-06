@@ -867,6 +867,10 @@ function openNotify(): void {
   if (!config) return;
   alertsDraft = normalizeAlerts(config.alerts, config.sound_enabled);
   notifyTab = "fajr";
+  // The panel always opens on the notification settings view — a voice
+  // sheet left open from a previous visit (or a hidden window) must not
+  // greet the user as a trap with no way back.
+  $("voice-sheet").hidden = true;
   syncNotifyPanel();
   $("overlay").hidden = false;
   $("notify-dialog").hidden = false;
@@ -875,6 +879,7 @@ function openNotify(): void {
 function closeNotify(): void {
   $("overlay").hidden = true;
   $("notify-dialog").hidden = true;
+  $("voice-sheet").hidden = true;
 }
 
 async function pickSoundFile(): Promise<string | null> {

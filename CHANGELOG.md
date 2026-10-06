@@ -4,6 +4,28 @@ All notable changes to mawaqit-desktop are documented here. Versions follow
 [semver](https://semver.org/); the app and the
 [mawaqit-api](../mawaqit-api) library version-lock at release time.
 
+## [0.10.1] — 2026-10-06
+
+### Fixed
+- **Enabling Tor against a dead proxy no longer silently black-holes all
+  remote traffic.** The topbar toggle and the settings save now probe the
+  configured `host:port` and refuse to enable with an actionable error
+  ("nothing is listening on …") when no proxy answers. At startup a
+  configured-but-dead proxy stays on Tor (privacy: no silent fallback to a
+  direct connection) and logs loudly instead — the topbar toggle still
+  turns it off. This is what made "with Tor on, no remote athan / prayer
+  times / voice download" happen with no Tor daemon running.
+- **The voice sheet can no longer be re-entered in a stuck state.** The
+  notification panel now always opens on the notification settings view:
+  a voice sheet left open (window hidden via tray/Escape while the sheet
+  was up) no longer greets the user on the next open.
+
+### Changed
+- Removed `application/services.rs` — a dead refactor leftover that was
+  tracked but never compiled (no `mod` declaration).
+- Zero-warning cleanup: clippy findings in tray.rs, prayer_logic.rs,
+  alarm_engine.rs and two stale imports.
+
 ## [0.10.0] — 2026-10-05
 
 ### Changed

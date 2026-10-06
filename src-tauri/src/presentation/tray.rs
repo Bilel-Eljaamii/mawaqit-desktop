@@ -116,7 +116,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         MenuItem::with_id(app, "next-prayer", "Next prayer: -", false, None::<&str>)?;
     let prayer_items: Vec<MenuItem<Wry>> = (0..PRAYER_ROW_COUNT)
         .map(|i| {
-            MenuItem::with_id(app, &format!("prayer-row-{i}"), "—", false, None::<&str>)
+            MenuItem::with_id(app, format!("prayer-row-{i}"), "—", false, None::<&str>)
         })
         .collect::<Result<_, _>>()?;
     let open_item = MenuItem::with_id(app, "open", "Open Mawaqit", true, None::<&str>)?;
@@ -316,7 +316,7 @@ pub fn generate_tray_icon(minutes: i64) -> Image<'static> {
         let color = urgency_color(minutes);
         for y in 19..=30 {
             for x in 12..=30 {
-                let corner = (x < 14 || x > 28) && (y < 21 || y > 28);
+                let corner = !(14..=28).contains(&x) && !(21..=28).contains(&y);
                 if !corner {
                     img.put_pixel(x, y, color);
                 }
@@ -359,7 +359,7 @@ pub fn update_tray(app: &AppHandle, minutes: i64, event_label: &str, offline: bo
 pub fn set_tray_status(app: &AppHandle, text: &str) {
     if let Some(state) = app.try_state::<TrayState>() {
         let _ = state.tray.set_tooltip(Some(text));
-        let _ = state.next_item.set_text(text.to_string());
+        let _ = state.next_item.set_text(text);
     }
 }
 

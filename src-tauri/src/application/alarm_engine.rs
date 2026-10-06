@@ -151,7 +151,7 @@ fn resolve_athan_source(
     if let Some(voice) = &alerts.voice {
         let path = voices_dir.join(format!("{voice}.mp3"));
         if path.is_file() {
-            return (AthanSource::File(path.into()), None);
+            return (AthanSource::File(path), None);
         }
         // Download best-effort in the background so the NEXT adhan uses the
         // voice; this one plays the builtin instead of blocking the alert.
@@ -168,7 +168,7 @@ fn resolve_athan_source(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::models::{AlertsConfig, TodayPayload};
+    use crate::domain::models::TodayPayload;
 use mawaqit_api::{DailyIqamaTimes, DailyPrayerTimes, TodayTimes};
     use std::collections::HashSet;
     use std::path::PathBuf;

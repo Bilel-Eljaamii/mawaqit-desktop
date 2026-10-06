@@ -45,9 +45,12 @@ mawaqit-api = { version = "0.2.0", path = "../../mawaqit-api" }
   marked), and the window title carries the countdown for alt-tab/taskbar.
 - **Privacy: optional Tor routing** — also a one-click toggle in the topbar. — a settings toggle sends all mawaqit.net
   traffic through Tor (or any SOCKS5 proxy with remote DNS, `socks5h://`).
-  Off by default; needs a running system tor (9050) or Tor Browser (9150);
-  applied at startup, and an unreachable proxy degrades to a direct
-  connection so the app never fails to start. Composes with offline snapshots.
+  Off by default; needs a running system tor (9050) or Tor Browser (9150).
+  Turning Tor on verifies the proxy first — the toggle refuses with an
+  actionable message when nothing is listening. If the proxy dies later
+  (or was configured while off), remote requests fail rather than leak to
+  a direct connection: flip the shield off to go direct. Composes with
+  offline snapshots.
 - **Works offline** — every successful fetch stores a snapshot of the mosque's whole year
   (adhan + iqama calendars) in the app config directory; when the network is down the app
   serves the snapshot, keeps the alarms and shows an "Offline — times from …" badge (the tray

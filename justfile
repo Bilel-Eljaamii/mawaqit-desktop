@@ -49,6 +49,15 @@ coverage-frontend:
 coverage: coverage-backend coverage-frontend
     @echo "coverage done"
 
+# Release binary with a FRESH frontend embed. Order matters: dist must be
+# rebuilt BEFORE cargo — tauri's generate_context! embeds dist at compile
+# time, and cargo cannot see frontend changes as an input, so a plain
+# `cargo build --release` can ship yesterday's UI (the voice-sheet bug was
+# exactly this).
+build-release:
+    pnpm build
+    cargo build --release
+
 # Production build: frontend + AppImage bundle
 build-appimage:
     pnpm build:arch

@@ -3,12 +3,11 @@ pub mod domain;
 pub mod infrastructure;
 pub mod presentation;
 
-use std::{collections::HashSet, path::PathBuf, time::Duration};
+use std::{collections::HashSet, time::Duration};
 
 use application::prayer_logic::{adhan_entries, iqama_entries, next_prayer};
 use chrono::Local;
 use domain::models::{AppConfig, TodayPayload};
-use infrastructure::audio::AthanSource;
 use mawaqit_api::MawaqitClient;
 use presentation::tray::{
     prayer_menu_rows, set_tray_status, setup_tray, update_tray, update_tray_prayers,
@@ -246,7 +245,6 @@ async fn background_loop(
 }
 
 /// One minute-tick of tray update + alert dispatch.
-
 fn tick(
     handle: &tauri::AppHandle,
     config: &AppConfig,

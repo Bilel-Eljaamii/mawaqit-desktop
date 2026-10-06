@@ -3,10 +3,25 @@
 //! state cannot be re-managed — so Tor toggles swap the client in place
 //! through this holder and every consumer reads the current transport.
 
+use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 use crate::domain::models::AppConfig;
 use crate::MawaqitClient;
+
+/// Whether something is accepting TCP connections on `host:port` right
+/// now. Used to fail a Tor enable *at the toggle* instead of silently
+/// black-holing every remote request afterwards. An unresolvable host
+/// counts as unreachable.
+pub fn tor_reachable(host: &str, port: u16) -> bool {
+    let Ok(mut addrs) = (host, port).to_socket_addrs() else {
+        return false;
+    };
+    addrs
+        .next()
+        .is_some_and(|addr| TcpStream::connect_timeout(&addr, Duration::from_millis(750)).is_ok())
+}
 
 #[derive(Clone)]
 pub struct ClientHolder {
@@ -43,6 +58,14 @@ pub fn build_client(config: &AppConfig) -> MawaqitClient {
     let direct = || MawaqitClient::new().with_disk_cache(crate::infrastructure::config::cache_dir());
     let mut client = direct();
     if let Some(url) = config.tor.socks5h_url() {
+        // A configured-but-dead proxy is NOT silently bypassed: the user
+        // routed traffic through Tor, so it stays on Tor and fails loudly.
+        if !tor_reachable(&config.tor.host, config.tor.port) {
+            eprintln!(
+                "tor proxy {}:{} is not reachable — remote requests will fail until Tor is running (no fallback to direct: traffic stays on Tor)",
+                config.tor.host, config.tor.port
+            );
+        }
         client = match client.with_socks_proxy(url) {
             Ok(c) => c,
             Err(e) => {
