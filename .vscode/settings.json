@@ -1,0 +1,85 @@
+{
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "always",
+        // "source.fixAll.markdownlint": "always",
+        "source.organizeImports": "always"
+    },
+
+    // -------------------------------------------------------------------------
+    // LANGUAGE FORMATTERS
+    // -------------------------------------------------------------------------
+    "[rust]": {
+        "editor.defaultFormatter": "rust-lang.rust-analyzer",
+        "editor.formatOnSave": true
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[toml]": {
+        "editor.defaultFormatter": "tamasfe.even-better-toml"
+    },
+    "[markdown]": {
+        "editor.defaultFormatter": "DavidAnson.vscode-markdownlint",
+        "editor.formatOnSave": true
+    },
+
+    // -------------------------------------------------------------------------
+    // ⚡ HIGH-PERFORMANCE RUST-ANALYZER SETTINGS
+    // -------------------------------------------------------------------------
+    // Separate build directory prevents terminal & VS Code file-locking
+    // "rust-analyzer.cargo.targetDir": true,
+    "rust-analyzer.cargo.targetDir": "${workspaceFolder}/target/rust-analyzer",
+
+    // Offload file watching to VS Code client (Reduces CPU usage)
+    "rust-analyzer.files.watcher": "client",
+
+    // Run Clippy ONLY on workspace libraries and binaries (skips heavy tests/benchmarks on save)
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.check.extraArgs": [
+    "--message-format=json-diagnostic-rendered-ansi",
+    "--lib",
+    "--bins"
+],
+
+    // Performance caps & disabling non-essential background work
+    "rust-analyzer.cargo.buildScripts.enable": true,
+    "rust-analyzer.cargo.buildScripts.rebuildOnSave": false,
+    "rust-analyzer.procMacro.enable": true,
+    "rust-analyzer.lru.capacity": 128,
+    "rust-analyzer.diagnostics.experimental.enable": false,
+
+    // Code import organization settings
+    "rust-analyzer.imports.granularity.group": "module",
+    "rust-analyzer.imports.prefix": "crate",
+
+    // -------------------------------------------------------------------------
+    // EXCLUSIONS (Prevents VS Code & rust-analyzer indexing heavy build folders)
+    // -------------------------------------------------------------------------
+    "files.watcherExclude": {
+        "**/target/**": true,
+        "**/node_modules/**": true,
+        "**/dist/**": true,
+        "**/pkg/**": true,
+        ".claude/**": true,
+        "**/.worktrees/**": true
+    },
+    "search.exclude": {
+        "**/target": true,
+        "**/node_modules": true,
+        "**/dist": true,
+        "**/pkg": true,
+        "**/.worktrees": true,
+        "**/*.pcap": true,
+        "**/*.pcapng": true
+    }
+}
