@@ -89,9 +89,13 @@ impl AlertsConfig {
 }
 
 /// The Tor transport policy (value object): whether mawaqit.net traffic is
-/// routed through a local Tor/SOCKS5 proxy, and where it is. The
-/// `socks5h://` scheme is fixed by this type — callers only ever supply
-/// host and port, so a DNS-leaking plain `socks5://` can never be stored.
+/// routed through Tor, and by which transport. `builtin: true` (the
+/// default for configs that predate the field) runs Tor inside the app via
+/// the embedded Arti client — no external daemon needed; `host`/`port` are
+/// then unused. `builtin: false` routes through an external SOCKS5 proxy
+/// at `host:port` (system tor, Tor Browser, …). The `socks5h://` scheme is
+/// fixed by this type — callers only ever supply host and port, so a
+/// DNS-leaking plain `socks5://` can never be stored.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct TorProxy {
     #[serde(default)]
@@ -100,6 +104,11 @@ pub struct TorProxy {
     pub host: String,
     #[serde(default = "default_tor_port")]
     pub port: u16,
+    /// Built-in (embedded Arti) Tor — see `infrastructure::builtin_tor`.
+    /// Defaults to true so pre-v0.11 configs switch to the zero-setup
+    /// transport on load.
+    #[serde(default = "default_true")]
+    pub builtin: bool,
 }
 
 pub const DEFAULT_TOR_HOST: &str = "127.0.0.1";
@@ -118,6 +127,7 @@ impl Default for TorProxy {
             enabled: false,
             host: default_tor_host(),
             port: default_tor_port(),
+            builtin: default_true(),
         }
     }
 }
@@ -134,10 +144,12 @@ pub fn is_plausible_tor_host(host: &str) -> bool {
 
 impl TorProxy {
     /// The proxy address for the api client (`socks5h://host:port`), or
-    /// `None` when Tor is off or the host is implausible — callers degrade
-    /// to a direct connection.
+    /// `None` when Tor is off, the mode is built-in (the address comes
+    /// from the running internal stack, see `infrastructure::builtin_tor`),
+    /// or the host is implausible — callers never fall back to a direct
+    /// connection while Tor is on.
     pub fn socks5h_url(&self) -> Option<String> {
-        if !self.enabled || !is_plausible_tor_host(&self.host) {
+        if !self.enabled || self.builtin || !is_plausible_tor_host(&self.host) {
             return None;
         }
         Some(format!("socks5h://{}:{}", self.host, self.port))
@@ -296,7 +308,7 @@ mod tor_proxy_tests {
 
     #[test]
     fn url_built_only_when_enabled_and_plausible() {
-        let on = TorProxy { enabled: true, host: "127.0.0.1".into(), port: 9050 };
+        let on = TorProxy { enabled: true, host: "127.0.0.1".into(), port: 9050, builtin: false };
         assert_eq!(on.socks5h_url().as_deref(), Some("socks5h://127.0.0.1:9050"));
 
         // Disabled: no URL, whatever the address.
@@ -304,9 +316,9 @@ mod tor_proxy_tests {
         assert!(off.socks5h_url().is_none());
 
         // Implausible host: no URL.
-        let bad = TorProxy { enabled: true, host: "not a host!".into(), port: 9050 };
+        let bad = TorProxy { enabled: true, host: "not a host!".into(), port: 9050, builtin: false };
         assert!(bad.socks5h_url().is_none());
-        let empty = TorProxy { enabled: true, host: String::new(), port: 9050 };
+        let empty = TorProxy { enabled: true, host: String::new(), port: 9050, builtin: false };
         assert!(empty.socks5h_url().is_none());
     }
 
@@ -318,7 +330,7 @@ mod tor_proxy_tests {
         assert!(!is_plausible_tor_host("bad host"));
         assert!(!is_plausible_tor_host("socks5h://evil"));
 
-        let bad_port = TorProxy { enabled: true, host: "127.0.0.1".into(), port: 0 };
+        let bad_port = TorProxy { enabled: true, host: "127.0.0.1".into(), port: 0, builtin: false };
         // Port 0 is technically stored but the URL keeps it explicit — the
         // api rejects unreachable proxies by failing to connect, and the
         // settings UI bounds the input to 1..=65535.
@@ -340,5 +352,28 @@ mod tor_proxy_tests {
         assert!(!minimal.enabled);
         assert_eq!(minimal.host, "127.0.0.1");
         assert_eq!(minimal.port, 9050);
+    }
+
+    #[test]
+    fn configs_predating_builtin_migrate_to_the_builtin_stack() {
+        // A v0.10-era config block carries no `builtin` field: it loads as
+        // built-in mode so the Tor toggle keeps working with zero external
+        // setup (the stored host/port stay but are unused).
+        let legacy: TorProxy =
+            serde_json::from_str(r#"{"enabled":true,"host":"127.0.0.1","port":9050}"#).unwrap();
+        assert!(legacy.builtin);
+        // The built-in address comes from the running stack, never from
+        // host/port — so the value object hands out no URL here.
+        assert!(legacy.socks5h_url().is_none());
+
+        // Explicit external mode still resolves the URL.
+        let external: TorProxy = serde_json::from_str(
+            r#"{"enabled":true,"host":"127.0.0.1","port":9150,"builtin":false}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            external.socks5h_url().as_deref(),
+            Some("socks5h://127.0.0.1:9150")
+        );
     }
 }

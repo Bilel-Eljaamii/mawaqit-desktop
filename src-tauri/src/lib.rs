@@ -20,11 +20,16 @@ use tauri_plugin_notification::NotificationExt;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let config = infrastructure::config::load_config();
+    // Built-in Tor (embedded Arti): one stack for the whole session. When
+    // the config enables it, `from_config` → `tor_proxy_url` starts it here
+    // (sub-second listener bind; the network bootstrap continues in the
+    // background) — the toggle later reuses the warm stack instantly.
+    let builtin_tor = infrastructure::builtin_tor::BuiltinTor::default();
     // The holder wraps the transport so a Tor toggle can swap it at runtime:
     // the disk snapshot makes prayer times (and the alarms) survive a dead
     // network, and the Tor proxy (when enabled) routes it through Tor.
     let client_holder =
-        infrastructure::client_handle::ClientHolder::from_config(&config);
+        infrastructure::client_handle::ClientHolder::from_config(&config, &builtin_tor);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
@@ -35,6 +40,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(client_holder.clone())
+        .manage(builtin_tor)
         .manage(RefreshFlag::new())
         .invoke_handler(tauri::generate_handler![
             presentation::commands::get_config,

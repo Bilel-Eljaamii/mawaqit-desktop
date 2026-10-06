@@ -136,15 +136,11 @@
       <div class="form-group">
         <label class="checkbox-group">
           <input type="checkbox" id="set-tor" />
-          <span>Route mawaqit.net traffic through Tor</span>
+          <span>Route mawaqit.net traffic through the built-in Tor network</span>
         </label>
-        <div class="tor-fields" id="tor-fields">
-          <span class="tor-scheme">socks5h://</span>
-          <input type="text" id="set-tor-host" placeholder="127.0.0.1" spellcheck="false" />
-          <input type="number" id="set-tor-port" min="1" max="65535" placeholder="9050" />
-        </div>
-        <p class="form-hint">Requires a running Tor/SOCKS5 proxy (system tor:
-          127.0.0.1:9050 &middot; Tor Browser: 9150). Applies immediately.</p>
+        <p class="form-hint">Tor runs inside the app &mdash; no other software
+          needed. The first connection downloads the Tor directory (about a
+          minute, once); later starts are quick. Applies immediately.</p>
       </div>
 
       <div class="form-group">

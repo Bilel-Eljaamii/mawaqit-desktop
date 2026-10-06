@@ -43,14 +43,18 @@ mawaqit-api = { version = "0.2.0", path = "../../mawaqit-api" }
   never blocks the app). The tray menu and the settings dialog show the app
   version. The tray menu also lists today's times (next prayer
   marked), and the window title carries the countdown for alt-tab/taskbar.
-- **Privacy: optional Tor routing** — also a one-click toggle in the topbar. — a settings toggle sends all mawaqit.net
-  traffic through Tor (or any SOCKS5 proxy with remote DNS, `socks5h://`).
-  Off by default; needs a running system tor (9050) or Tor Browser (9150).
-  Turning Tor on verifies the proxy first — the toggle refuses with an
-  actionable message when nothing is listening. If the proxy dies later
-  (or was configured while off), remote requests fail rather than leak to
-  a direct connection: flip the shield off to go direct. Composes with
-  offline snapshots.
+- **Privacy: built-in Tor** — a one-click toggle in the topbar and in
+  Settings. Tor (the Tor Project's Rust client, Arti) runs **inside the
+  app**: no system tor daemon, no Tor Browser, nothing to install. Off by
+  default. The first connection downloads the Tor directory (about a
+  minute, once — cached in `~/.config/mawaqit-desktop/arti-state`); later
+  starts take seconds. While Tor is on, traffic is always routed through
+  Tor — an unreachable or still-connecting Tor makes remote requests fail
+  (prayer times survive via offline snapshots) rather than leak to a
+  direct connection: flip the shield off to go direct. Advanced users can
+  route through an external SOCKS5 proxy instead by setting
+  `"builtin": false` plus `tor.host`/`tor.port` in the config file.
+  Composes with offline snapshots.
 - **Works offline** — every successful fetch stores a snapshot of the mosque's whole year
   (adhan + iqama calendars) in the app config directory; when the network is down the app
   serves the snapshot, keeps the alarms and shows an "Offline — times from …" badge (the tray

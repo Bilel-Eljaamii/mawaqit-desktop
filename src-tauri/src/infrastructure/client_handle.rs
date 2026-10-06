@@ -8,10 +8,12 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use crate::domain::models::AppConfig;
+use crate::infrastructure::builtin_tor::BuiltinTor;
 use crate::MawaqitClient;
 
 /// Whether something is accepting TCP connections on `host:port` right
-/// now. Used to fail a Tor enable *at the toggle* instead of silently
+/// now. The save-time gate for EXTERNAL Tor proxies (system tor, Tor
+/// Browser): fail the enable at the toggle instead of silently
 /// black-holing every remote request afterwards. An unresolvable host
 /// counts as unreachable.
 pub fn tor_reachable(host: &str, port: u16) -> bool {
@@ -29,13 +31,14 @@ pub struct ClientHolder {
 }
 
 impl ClientHolder {
-    /// Build the transport for one config: direct, or through the Tor
-    /// SOCKS5 proxy when enabled with a plausible host. An unreachable or
-    /// strictly-invalid proxy degrades to a direct connection with a log
-    /// line — the app must always start.
-    pub fn from_config(config: &AppConfig) -> Self {
+    /// Build the transport for one config: direct, through the built-in
+    /// Tor stack, or through an external SOCKS5 proxy. An unreachable or
+    /// strictly-invalid external proxy degrades to a direct connection
+    /// with a log line — the app must always start. Built-in Tor never
+    /// degrades: see [`tor_proxy_url`].
+    pub fn from_config(config: &AppConfig, builtin: &BuiltinTor) -> Self {
         Self {
-            client: Arc::new(RwLock::new(build_client(config))),
+            client: Arc::new(RwLock::new(build_client(config, builtin))),
         }
     }
 
@@ -50,22 +53,14 @@ impl ClientHolder {
     }
 }
 
-/// The transport for one config: direct, or through the Tor SOCKS5 proxy
-/// when enabled with a plausible host. An unreachable or strictly-invalid
-/// proxy degrades to a direct connection with a log line — the app must
-/// always start.
-pub fn build_client(config: &AppConfig) -> MawaqitClient {
+/// The transport for one config: direct, through the built-in Tor stack,
+/// or through an external SOCKS5 proxy (system tor, Tor Browser, …). A
+/// strictly-invalid proxy config degrades to a direct connection with a
+/// log line — the app must always start.
+pub fn build_client(config: &AppConfig, builtin: &BuiltinTor) -> MawaqitClient {
     let direct = || MawaqitClient::new().with_disk_cache(crate::infrastructure::config::cache_dir());
     let mut client = direct();
-    if let Some(url) = config.tor.socks5h_url() {
-        // A configured-but-dead proxy is NOT silently bypassed: the user
-        // routed traffic through Tor, so it stays on Tor and fails loudly.
-        if !tor_reachable(&config.tor.host, config.tor.port) {
-            eprintln!(
-                "tor proxy {}:{} is not reachable — remote requests will fail until Tor is running (no fallback to direct: traffic stays on Tor)",
-                config.tor.host, config.tor.port
-            );
-        }
+    if let Some(url) = tor_proxy_url(config, builtin) {
         client = match client.with_socks_proxy(url) {
             Ok(c) => c,
             Err(e) => {
@@ -78,29 +73,68 @@ pub fn build_client(config: &AppConfig) -> MawaqitClient {
 }
 
 /// Rebuild the transport for `config` and swap it into the holder.
-pub fn rebuild_client(holder: &ClientHolder, config: &AppConfig) {
-    holder.swap(build_client(config));
+pub fn rebuild_client(holder: &ClientHolder, config: &AppConfig, builtin: &BuiltinTor) {
+    holder.swap(build_client(config, builtin));
+}
+
+/// The socks5h URL for this config's Tor policy, or `None` when Tor is
+/// off. The privacy rule: Tor on is never silently downgraded to direct —
+/// built-in mode starts the internal stack (or keeps pointing at its
+/// default port so requests fail loudly), external mode hands out the
+/// configured address (an implausible one fails loudly, also never
+/// direct).
+pub fn tor_proxy_url(config: &AppConfig, builtin: &BuiltinTor) -> Option<String> {
+    if !config.tor.enabled {
+        return None;
+    }
+    if config.tor.builtin {
+        let addr = match builtin.ensure_started() {
+            Ok(addr) => addr,
+            Err(e) => {
+                eprintln!(
+                    "built-in tor failed to start: {e} — remote requests will fail (no fallback to direct: traffic stays on Tor)"
+                );
+                // Point at the would-be port anyway: the connection is
+                // refused loudly instead of leaking around Tor.
+                return Some(format!(
+                    "socks5h://127.0.0.1:{}",
+                    crate::infrastructure::builtin_tor::BUILTIN_TOR_PORT
+                ));
+            }
+        };
+        return Some(format!("socks5h://{addr}"));
+    }
+    let url = config.tor.socks5h_url();
+    if url.is_none() {
+        eprintln!(
+            "tor enabled with an implausible external address — remote requests will fail (no fallback to direct: traffic stays on Tor)"
+        );
+    }
+    url
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::models::{TorProxy, DEFAULT_TOR_HOST};
 
     #[test]
     fn current_reflects_the_swap() {
-        let holder = ClientHolder::from_config(&AppConfig::default());
+        let builtin = BuiltinTor::default();
+        let holder = ClientHolder::from_config(&AppConfig::default(), &builtin);
         let direct = holder.current();
 
         // A tor-enabled config produces a DIFFERENT transport instance.
         let tor_on = AppConfig {
-            tor: crate::domain::models::TorProxy {
+            tor: TorProxy {
                 enabled: true,
-                host: "127.0.0.1".into(),
+                host: DEFAULT_TOR_HOST.into(),
                 port: 9050,
+                builtin: false,
             },
             ..AppConfig::default()
         };
-        let holder = ClientHolder::from_config(&tor_on);
+        let holder = ClientHolder::from_config(&tor_on, &builtin);
         let proxied = holder.current();
         holder.swap(direct);
         let _ = proxied; // instances are opaque; swap must not panic
@@ -108,18 +142,56 @@ mod tests {
     }
 
     #[test]
-    fn implausible_host_degrades_to_direct() {
-        // An implausible host yields no socks5h URL — the transport is the
-        // plain direct client and the holder still works.
+    fn implausible_external_host_degrades_to_direct() {
+        // An implausible external host yields no socks5h URL — the
+        // transport is the plain direct client and the holder still works.
+        let builtin = BuiltinTor::default();
         let cfg = AppConfig {
-            tor: crate::domain::models::TorProxy {
+            tor: TorProxy {
                 enabled: true,
                 host: "not a host!".into(),
                 port: 9050,
+                builtin: false,
             },
             ..AppConfig::default()
         };
-        let holder = ClientHolder::from_config(&cfg);
+        let holder = ClientHolder::from_config(&cfg, &builtin);
         let _ = holder.current();
+    }
+
+    #[test]
+    fn builtin_tor_on_yields_the_stack_url() {
+        // Pre-start the stack in Deferred mode (no network): tor_proxy_url
+        // must then take the idempotent fast path and hand out exactly
+        // that address.
+        let tmp = std::env::temp_dir().join(format!(
+            "mawaqit-arti-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .subsec_nanos()
+        ));
+        std::env::set_var("MAWAQIT_ARTI_STATE_DIR", &tmp);
+
+        let builtin = BuiltinTor::default();
+        let expected = builtin
+            .ensure_started_mode(crate::infrastructure::builtin_tor::StartMode::Deferred)
+            .expect("stack starts");
+        let cfg = AppConfig {
+            tor: TorProxy {
+                enabled: true,
+                ..TorProxy::default()
+            },
+            ..AppConfig::default()
+        };
+        let url = tor_proxy_url(&cfg, &builtin).expect("built-in tor yields a URL");
+        assert_eq!(url, format!("socks5h://{expected}"));
+    }
+
+    #[test]
+    fn tor_off_yields_no_url() {
+        let builtin = BuiltinTor::default();
+        let cfg = AppConfig::default();
+        assert!(tor_proxy_url(&cfg, &builtin).is_none());
     }
 }

@@ -110,6 +110,18 @@ the worst case is a self-DoS — traffic routed to a hostile proxy. Pinned:
 (`is_plausible_socks_addr`), and a startup proxy failure degrades to a
 direct connection with a log line; both have tests.
 
+The v0.11.0 built-in Tor stack (embedded Arti) narrows this further:
+`tor.builtin: true` (the default) ignores host/port entirely — the SOCKS5
+bridge binds loopback only (`127.0.0.1:9058`, no auth, CONNECT only) and
+`update_config` starts the stack itself, so a tampered config cannot point
+built-in mode anywhere. The external path (`builtin: false`) keeps the
+self-DoS-only risk with its reachability gate. Two honest caveats: Arti
+writes its directory cache to `~/.config/mawaqit-desktop/arti-state`
+(owner-only permissions enforced by arti's fs-mistrust), and — per Arti's
+documented fail-safe — the library may exit the process if a Tor consensus
+bans the arti-client version; rare, and failing closed is the correct
+direction for a privacy feature.
+
 Since v0.2.0 the per-prayer alerts config can name a `sound` path on disk;
 a tampered config file can therefore make the app play any local mp3/wav as
 the athan. Bounded by design: the path is opened as audio input only

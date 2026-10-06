@@ -4,6 +4,44 @@ All notable changes to mawaqit-desktop are documented here. Versions follow
 [semver](https://semver.org/); the app and the
 [mawaqit-api](../mawaqit-api) library version-lock at release time.
 
+## [0.11.0] — 2026-10-06
+
+### Added
+- **Built-in Tor — the toggle just works.** The app now embeds the Tor
+  Project's Rust client (Arti, `arti-client 0.47.0`, exact-pinned) and
+  exposes it to the HTTP stack through a local SOCKS5 bridge
+  (`127.0.0.1:9058`, OS-assigned fallback). Enabling Tor requires zero
+  external setup: no system tor daemon, no Tor Browser.
+- **Non-blocking bootstrap** — the shield flips instantly; the connection
+  to the Tor network continues in the background. The first run downloads
+  the Tor directory (roughly a minute, once); later starts are seconds,
+  with the directory cache persisted under
+  `~/.config/mawaqit-desktop/arti-state`.
+
+### Changed
+- **Settings Privacy section is built-in only** — the external host/port
+  fields are gone from the UI (per product decision). External-proxy mode
+  still exists for advanced users via the config file
+  (`tor.builtin: false` + `tor.host`/`tor.port`), and its save-time
+  reachability gate is unchanged. Configs predating this version load with
+  `builtin: true`, so their toggle switches to the zero-setup transport.
+- Per-connection circuit isolation on the built-in stack: concurrent data
+  paths and voice downloads never share a Tor circuit.
+- The v0.10.1 privacy rule is preserved and now enforced end to end: with
+  Tor on, the transport is always `socks5h://` — a not-yet-ready or failed
+  built-in stack makes requests fail loudly (prayer times survive via the
+  offline snapshot) instead of leaking to a direct connection.
+
+### Technical
+- New `infrastructure/socks_bridge.rs`: CONNECT-only, no-auth SOCKS5
+  server, generic over the transport connector; hostile-tested (bad
+  version, BIND/UDP rejection, bad address type, connector failure,
+  bidirectional relay). New `infrastructure/builtin_tor.rs`: managed
+  `BuiltinTor` stack (idempotent start, bootstrap status, warm re-enable).
+- The buildable-without-Tor variant: `--no-default-features` ships without
+  the embedded stack (built-in enable is a clean error; external mode via
+  config still works). CI builds natively per platform with the feature on.
+
 ## [0.10.1] — 2026-10-06
 
 ### Fixed

@@ -33,7 +33,7 @@ lint:
 # lib.rs/main.rs are Tauri runtime wiring: compile-checked + manual, held
 # out of the unit-test denominator. HTML: `just coverage-backend-html`.
 coverage-backend:
-    cargo llvm-cov --workspace --summary-only --fail-under-lines 55
+    cargo llvm-cov --workspace --summary-only --fail-under-lines 95
 
 # Backend coverage HTML report
 coverage-backend-html:

@@ -235,7 +235,7 @@ mod tests {
     fn notify_before_cap_is_sane() {
         // The config is attacker-writable; a u16::MAX must behave as the cap,
         // never as a 45-day countdown.
-        assert!(MAX_NOTIFY_BEFORE_MIN <= 24 * 60);
+        const { assert!(MAX_NOTIFY_BEFORE_MIN <= 24 * 60) }
         assert!(minutes_before("06:30", MAX_NOTIFY_BEFORE_MIN).is_some());
     }
 }

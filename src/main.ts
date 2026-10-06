@@ -41,8 +41,12 @@ interface AppConfig {
   autostart: boolean;
   /** Serve saved (snapshot) times only; never touch the network for data. */
   offline_mode: boolean;
-  /** Tor transport policy: route mawaqit.net through socks5h://host:port. */
-  tor: { enabled: boolean; host: string; port: number };
+  /**
+   * Tor transport policy. `builtin: true` (the default for existing
+   * configs) runs Tor inside the app — host/port unused. `builtin: false`
+   * routes through an external socks5h proxy at host:port.
+   */
+  tor: { enabled: boolean; host: string; port: number; builtin: boolean };
   alerts: AlertsConfig;
   /** Ids of mosque announcements the user has read (capped backend-side). */
   announcements_read: string[];
@@ -115,7 +119,7 @@ const DEFAULT_CONFIG: AppConfig = {
   iqama_alerts: false,
   autostart: true,
   offline_mode: false,
-  tor: { enabled: false, host: "127.0.0.1", port: 9050 },
+  tor: { enabled: false, host: "127.0.0.1", port: 9050, builtin: true },
   alerts: defaultAlerts(),
   announcements_read: [],
 };
@@ -321,8 +325,8 @@ function syncTorButton(): void {
   btn.classList.toggle("active", on);
   btn.setAttribute("aria-pressed", String(on));
   btn.title = on
-    ? `Tor on — socks5h://${config?.tor.host}:${config?.tor.port} (click to turn off)`
-    : "Tor off (click to route mawaqit.net through Tor)";
+    ? "Tor on — built-in Tor (click to turn off)"
+    : "Tor off (click to route mawaqit.net through the built-in Tor)";
 }
 
 // ---- Online / offline toggle ----
@@ -423,14 +427,10 @@ async function pickOnboardingMosque(mosque: Mosque): Promise<void> {
 
 function openSettings(): void {
   if (!config) return;
-  const tor = ($("set-tor") as HTMLInputElement);
-  const torHost = $("set-tor-host") as HTMLInputElement;
-  const torPort = $("set-tor-port") as HTMLInputElement;
-  tor.checked = config.tor.enabled;
-  torHost.value = config.tor.host;
-  torPort.value = String(config.tor.port);
-  torHost.disabled = !tor.checked;
-  torPort.disabled = !tor.checked;
+  // Built-in Tor only: the address fields are gone from the UI; the
+  // stored host/port stay in the config file untouched (external mode
+  // remains reachable by hand-editing for advanced users).
+  ($("set-tor") as HTMLInputElement).checked = config.tor.enabled;
   ($("set-iqama") as HTMLInputElement).checked = config.iqama_alerts;
   ($("set-autostart") as HTMLInputElement).checked = config.autostart;
   $("set-status").textContent = "";
@@ -602,17 +602,13 @@ async function saveSettings(): Promise<void> {
     // Mosque switching applies immediately from its own dialog; this dialog
     // only carries the toggles.
     let cfg = await invoke<AppConfig>("get_config");
-    // Tor opt-in: an unchecked box means direct connection; a checked one
-    // requires a plausible host (backend re-validates and rejects the save
-    // with a visible message otherwise).
+    // Built-in Tor only: the checkbox flips the policy; the stored
+    // host/port are preserved untouched for external-mode users who edited
+    // the config file by hand. The backend re-validates (starting the
+    // built-in stack) and rejects the save with a visible message
+    // otherwise.
     const tor = ($("set-tor") as HTMLInputElement);
-    const torHost = ($("set-tor-host") as HTMLInputElement).value.trim();
-    const torPort = Number(($("set-tor-port") as HTMLInputElement).value);
-    if (tor.checked && (torHost === "" || !Number.isInteger(torPort) || torPort < 1 || torPort > 65535)) {
-      toast("Enter a Tor proxy host and port (1–65535) or untick the Tor option.");
-      return;
-    }
-    cfg.tor = { enabled: tor.checked, host: torHost || "127.0.0.1", port: torPort };
+    cfg.tor = { ...cfg.tor, enabled: tor.checked, builtin: true };
     cfg.iqama_alerts = ($("set-iqama") as HTMLInputElement).checked;
     cfg.autostart = ($("set-autostart") as HTMLInputElement).checked;
 
@@ -1071,7 +1067,10 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch((e) => console.warn("getVersion failed:", e));
 
   $("settings-btn").addEventListener("click", openSettings);
-  // Topbar Tor toggle: flips immediately (backend swaps the transport).
+  // Topbar Tor toggle: flips immediately (backend swaps the transport and
+  // starts the built-in stack if needed). The network connection continues
+  // in the background — until Tor is ready, remote requests fail with a
+  // clear error while the offline snapshot keeps times alive.
   $("tor-btn").addEventListener("click", async () => {
     if (!config) return;
     try {
@@ -1080,17 +1079,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const btn = $("tor-btn");
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-pressed", String(on));
-      toast(on ? "Tor on" : "Tor off", false);
+      toast(
+        on
+          ? "Tor on — connecting to the Tor network in the background"
+          : "Tor off",
+        false,
+      );
     } catch (e) {
       toast(`Tor toggle failed: ${e}`);
     }
   });
-  const syncTorFields = (): void => {
-    const on = ($("set-tor") as HTMLInputElement).checked;
-    ($("set-tor-host") as HTMLInputElement).disabled = !on;
-    ($("set-tor-port") as HTMLInputElement).disabled = !on;
-  };
-  $("set-tor").addEventListener("change", syncTorFields);
   $("offline-btn").addEventListener("click", () => void toggleOffline());
   $("mosque-btn").addEventListener("click", openMosque);
   $("mosque-cancel-btn").addEventListener("click", closeMosque);

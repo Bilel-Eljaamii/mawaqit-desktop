@@ -2,30 +2,28 @@ use std::{fs, path::PathBuf};
 
 use crate::domain::models::AppConfig;
 
-pub fn get_config_path() -> PathBuf {
+/// The app's per-user data root (everything Tor state, snapshots and
+/// voices live under it, so clearing it clears the whole app).
+pub fn config_dir() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("mawaqit-desktop")
-        .join("mawaqit-config.json")
+}
+
+pub fn get_config_path() -> PathBuf {
+    config_dir().join("mawaqit-config.json")
 }
 
 /// Offline prayer-time snapshot directory (one file per mosque slug, see
 /// `mawaqit_api::disk`).
 pub fn cache_dir() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("mawaqit-desktop")
-        .join("times-cache")
+    config_dir().join("times-cache")
 }
-
 
 /// Downloaded adhan-voice files (one mp3 per catalog voice id, see
 /// `mawaqit_api::voices`).
 pub fn voices_dir() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("mawaqit-desktop")
-        .join("voices")
+    config_dir().join("voices")
 }
 
 pub fn load_config() -> AppConfig {
@@ -78,10 +76,14 @@ fn migrate_legacy_tor_address(config: &mut crate::domain::models::AppConfig) {
         None => (rest, None),
     };
     if is_plausible_tor_host(host) && port.is_some() {
+        // The legacy string always meant an EXTERNAL proxy — that is what
+        // it was typed against — so it migrates to external mode, not the
+        // built-in stack.
         config.tor = TorProxy {
             enabled: true,
             host: host.to_string(),
             port: port.unwrap_or(9050),
+            builtin: false,
         };
     }
 }

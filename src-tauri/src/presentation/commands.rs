@@ -7,6 +7,7 @@ use crate::{
     domain::models::{AppConfig, TodayPayload},
     infrastructure::{
         audio,
+        builtin_tor::BuiltinTor,
         client_handle::ClientHolder,
         config::{cache_dir, load_config, save_config},
     },
@@ -22,10 +23,11 @@ pub fn get_config() -> AppConfig {
 pub fn update_config(
     config: AppConfig,
     client: State<ClientHolder>,
+    builtin: State<BuiltinTor>,
 ) -> Result<(), String> {
     let previous = load_config();
     let validated =
-        crate::application::settings::validate_and_apply_update(&client, &previous, config)?;
+        crate::application::settings::validate_and_apply_update(&client, &builtin, &previous, config)?;
     save_config(&validated);
     Ok(())
 }
@@ -82,11 +84,17 @@ pub fn set_offline_mode(on: bool, client: State<ClientHolder>) -> Result<(), Str
 
 /// Topbar Tor toggle: flips the policy, rebuilds and swaps the transport so
 /// the change applies immediately (alarms and UI data paths), and persists
-/// it. Fails when Tor is switched on without a plausible host.
+/// it. Built-in mode starts the embedded stack (sub-second, the network
+/// connection continues in the background); external mode fails when the
+/// configured proxy is not listening.
 #[tauri::command]
-pub fn set_tor_enabled(on: bool, client: State<ClientHolder>) -> Result<bool, String> {
+pub fn set_tor_enabled(
+    on: bool,
+    client: State<ClientHolder>,
+    builtin: State<BuiltinTor>,
+) -> Result<bool, String> {
     let previous = load_config();
-    let config = crate::application::settings::set_tor(&client, &previous, on)?;
+    let config = crate::application::settings::set_tor(&client, &builtin, &previous, on)?;
     save_config(&config);
     Ok(config.tor.enabled)
 }
