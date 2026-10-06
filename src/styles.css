@@ -141,10 +141,16 @@ body {
   color: var(--text);
 }
 
-/* Offline toggle engaged: same accent treatment as the active tab. */
+/* Offline toggle is a status light, not just a button: green cloud while
+ * the data comes from the network, red broken cloud in offline mode. The
+ * state rules sit after the shared hover rule so the color sticks. */
+#offline-btn:not(.active) {
+  color: var(--green);
+}
+
 #offline-btn.active {
-  background: rgba(255, 208, 95, 0.14);
-  color: var(--accent);
+  background: rgba(176, 65, 62, 0.16);
+  color: var(--danger);
 }
 
 /* Unread badge on the announcements icon. */
