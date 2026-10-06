@@ -20,7 +20,7 @@ jobs:
       - name: checkout sibling mawaqit-api
         run: git clone --depth 1 https://github.com/Bilel-Eljaamii/mawaqit-api.git ../mawaqit-api
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       # version comes from package.json `packageManager` — passing one here
       # too makes the action fail with ERR_PNPM_BAD_PM_VERSION-style conflict
 
