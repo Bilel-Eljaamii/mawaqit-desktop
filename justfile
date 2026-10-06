@@ -29,15 +29,17 @@ lint:
     cargo clippy --workspace
     pnpm check
 
-# Backend coverage — terminal summary + gate at 60% lines (issue #3).
+# Backend coverage — terminal summary + gate at 95% lines (issue #3).
 # lib.rs/main.rs are Tauri runtime wiring: compile-checked + manual, held
 # out of the unit-test denominator. HTML: `just coverage-backend-html`.
 coverage-backend:
-    cargo llvm-cov --workspace --summary-only --fail-under-lines 95
+    cargo llvm-cov --workspace --summary-only --fail-under-lines 95 \
+        --ignore-filename-regex "src-tauri/src/(lib|main)\.rs"
 
-# Backend coverage HTML report
+# Backend coverage HTML report (same denominator as the gate)
 coverage-backend-html:
-    cargo llvm-cov --workspace --html
+    cargo llvm-cov --workspace --html \
+        --ignore-filename-regex "src-tauri/src/(lib|main)\.rs"
     @echo "HTML report: target/llvm-cov/html/index.html"
 
 # Frontend coverage — terminal table + lcov/html in coverage/frontend.
@@ -60,4 +62,5 @@ build-release:
 
 # Production build: frontend + AppImage bundle
 build-appimage:
+    sh scripts/linuxdeploy-continuous.sh
     pnpm build:arch

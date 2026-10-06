@@ -317,6 +317,26 @@ async function loadToday(): Promise<void> {
   renderToday();
   refreshAnnounceBadge();
   syncTorButton();
+  scheduleOfflineRecovery();
+}
+
+// While the Today view is fed by the disk snapshot (fallback after a
+// network failure), re-poll every minute: the moment a fetch succeeds —
+// Tor bootstrapped, network back — the badge clears itself instead of
+// sitting there until a restart. Offline mode never polls (the snapshot
+// is the chosen source, not a fallback).
+let offlineRecoveryTimer: number | null = null;
+
+function scheduleOfflineRecovery(): void {
+  const degraded = payload?.as_of != null && config?.offline_mode !== true;
+  if (degraded && offlineRecoveryTimer === null) {
+    offlineRecoveryTimer = window.setInterval(() => {
+      void loadToday().catch(() => {});
+    }, 60_000);
+  } else if (!degraded && offlineRecoveryTimer !== null) {
+    window.clearInterval(offlineRecoveryTimer);
+    offlineRecoveryTimer = null;
+  }
 }
 
 function syncTorButton(): void {

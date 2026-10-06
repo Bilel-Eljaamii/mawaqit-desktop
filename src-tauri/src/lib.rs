@@ -246,6 +246,16 @@ async fn background_loop(
             tick(&handle, &config, payload, &mut alerted, &client);
         }
 
+        // A snapshot-served payload is a fallback, not a resting state: drop
+        // it after this tick so the next cycle retries the network. A dead
+        // proxy refuses instantly, so the degraded state costs one cheap
+        // attempt per minute — and once Tor bootstraps (or the network
+        // returns), the tray and alarms switch back to fresh data on their
+        // own instead of serving yesterday's snapshot until restart.
+        if !config.offline_mode && today.as_ref().is_some_and(|p| p.as_of.is_some()) {
+            today = None;
+        }
+
         tokio::time::sleep(Duration::from_secs(60)).await;
     }
 }

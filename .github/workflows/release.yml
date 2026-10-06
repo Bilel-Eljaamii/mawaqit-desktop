@@ -132,6 +132,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libasound2-dev patchelf
 
+      # tauri's pinned linuxdeploy (2024) cannot strip DT_RELR libraries,
+      # which Ubuntu 24.04 ships — plant the continuous build so AppImage
+      # bundling succeeds (the bundler keeps an existing cache file).
+      - name: plant continuous linuxdeploy (ubuntu only)
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          mkdir -p ~/.cache/tauri
+          curl -fsSL "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$(uname -m).AppImage" -o ~/.cache/tauri/linuxdeploy-$(uname -m).AppImage
+          chmod +x ~/.cache/tauri/linuxdeploy-$(uname -m).AppImage
+
       - name: install frontend dependencies
         run: pnpm install --frozen-lockfile
 
