@@ -80,7 +80,7 @@ async fn conf_for_view(
         client
             .conf_data_dated(&config.mosque_slug)
             .await
-            .map_err(|e| transport_err(&config, e.to_string()))
+            .map_err(|e| transport_err(config, e.to_string()))
     }
 }
 
