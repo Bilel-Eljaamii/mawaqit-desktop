@@ -7,7 +7,7 @@ use crate::{
     domain::models::{AppConfig, TodayPayload},
     infrastructure::{
         audio,
-        client_handle::{rebuild_client, ClientHolder},
+        client_handle::ClientHolder,
         config::{cache_dir, load_config, save_config},
     },
 };
@@ -17,10 +17,6 @@ pub fn get_config() -> AppConfig {
     load_config()
 }
 
-/// Plausibility check for a Tor proxy host (settings-save UX). The api
-/// enforces the strict socks5h URL rules at client construction; this is
-/// the save-time guard.
-use crate::domain::models::is_plausible_tor_host;
 
 #[tauri::command]
 pub fn update_config(

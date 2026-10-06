@@ -29,6 +29,35 @@ fn entry_exec_path() -> Option<PathBuf> {
     Some(exe)
 }
 
+/// The .desktop entry content for the application menu.
+fn menu_entry_content(exec: &str) -> String {
+    format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Name=Mawaqit\n\
+         Comment=Prayer times and athan alerts\n\
+         Exec={exec}\n\
+         Icon={APP_ICON_NAME}\n\
+         Terminal=false\n\
+         Categories=Utility;\n\
+         StartupWMClass={WM_CLASS}\n"
+    )
+}
+
+/// The autostart entry content for `~/.config/autostart`.
+fn autostart_entry_content(exec: &str) -> String {
+    format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Version=1.0\n\
+         Name={APP_ICON_NAME}\n\
+         Comment=mawaqit-desktop startup script\n\
+         Exec={exec} --minimized\n\
+         StartupNotify=false\n\
+         Terminal=false\n"
+    )
+}
+
 /// Install the app icon into the user's icon theme and a .desktop entry
 /// into ~/.local/share/applications, so the mawaqit icon shows up in the
 /// application menu, the dock and the taskbar even when running the binary
@@ -45,28 +74,21 @@ pub fn ensure_menu_entry() {
     let Some(data_dir) = dirs::data_dir() else {
         return;
     };
+    let Some(exec) = entry_exec_path().map(|p| p.display().to_string()) else {
+        return;
+    };
+    write_menu_entry(&data_dir, &exec);
 
     let icon_path =
         data_dir.join("icons/hicolor/256x256/apps").join(format!("{APP_ICON_NAME}.png"));
     write_if_changed(&icon_path, APP_ICON_PNG);
+}
 
-    let Some(exec) = entry_exec_path().map(|p| p.display().to_string()) else {
-        return;
-    };
-    let entry = format!(
-        "[Desktop Entry]\n\
-         Type=Application\n\
-         Name=Mawaqit\n\
-         Comment=Prayer times and athan alerts\n\
-         Exec={exec}\n\
-         Icon={APP_ICON_NAME}\n\
-         Terminal=false\n\
-         Categories=Utility;\n\
-         StartupWMClass={WM_CLASS}\n"
-    );
+
+fn write_menu_entry(data_dir: &std::path::Path, exec: &str) {
     let desktop_path =
         data_dir.join("applications").join(format!("{APP_ICON_NAME}.desktop"));
-    write_if_changed(&desktop_path, entry.as_bytes());
+    write_if_changed(&desktop_path, menu_entry_content(exec).as_bytes());
 }
 
 fn write_if_changed(path: &PathBuf, bytes: &[u8]) {
@@ -105,17 +127,7 @@ pub fn ensure_autostart_entry() {
     let Some(exe) = entry_exec_path() else {
         return;
     };
-    let desired = format!(
-        "[Desktop Entry]\n\
-         Type=Application\n\
-         Version=1.0\n\
-         Name={APP_ICON_NAME}\n\
-         Comment=mawaqit-desktop startup script\n\
-         Exec={} --minimized\n\
-         StartupNotify=false\n\
-         Terminal=false\n",
-        exe.display()
-    );
+    let desired = autostart_entry_content(&exe.display().to_string());
 
     if let Ok(existing) = fs::read_to_string(&path) {
         if existing != desired {
@@ -140,5 +152,20 @@ mod tests {
         let path = entry_exec_path().expect("a normal launch always has a stable path");
         assert!(path.is_file(), "{path:?} must exist");
         assert!(!path.starts_with("/tmp/.mount_"), "{path:?} is transient");
+    }
+
+    #[test]
+    fn menu_entry_content_pins_exec_icon_and_window_class() {
+        let content = menu_entry_content("/opt/mawaqit/app");
+        assert!(content.contains("Exec=/opt/mawaqit/app\n"));
+        assert!(content.contains(&format!("Icon={APP_ICON_NAME}")));
+        assert!(content.contains(&format!("StartupWMClass={WM_CLASS}")));
+    }
+
+    #[test]
+    fn autostart_entry_content_adds_the_minimized_flag() {
+        let content = autostart_entry_content("/opt/mawaqit/app");
+        assert!(content.contains("Exec=/opt/mawaqit/app --minimized\n"));
+        assert!(content.contains("StartupNotify=false"));
     }
 }

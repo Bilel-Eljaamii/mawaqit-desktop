@@ -5,12 +5,9 @@ pub mod presentation;
 
 use std::{collections::HashSet, path::PathBuf, time::Duration};
 
-use application::prayer_logic::{
-    adhan_entries, iqama_entries, is_due, minutes_before, next_prayer,
-    MAX_NOTIFY_BEFORE_MIN,
-};
+use application::prayer_logic::{adhan_entries, iqama_entries, next_prayer};
 use chrono::Local;
-use domain::models::{AppConfig, AthanMode, TodayPayload};
+use domain::models::{AppConfig, TodayPayload};
 use infrastructure::audio::AthanSource;
 use mawaqit_api::MawaqitClient;
 use presentation::tray::{
@@ -249,40 +246,6 @@ async fn background_loop(
 }
 
 /// One minute-tick of tray update + alert dispatch.
-/// The audio source for one adhan, honoring the per-prayer config:
-/// catalog voice (if cached; an uncached catalog voice downloads in the
-/// background for next time and this adhan falls back to the builtin) —
-/// otherwise the custom file, otherwise the builtin.
-fn resolve_athan_source(
-    alerts: &domain::models::PrayerAlerts,
-    client: &MawaqitClient,
-) -> AthanSource {
-    if let Some(voice) = &alerts.voice {
-        let path = infrastructure::config::voices_dir().join(format!("{voice}.mp3"));
-        if path.is_file() {
-            return AthanSource::File(path);
-        }
-        // Download best-effort in the background so the NEXT adhan uses the
-        // voice; this one plays the builtin instead of blocking the alert.
-        if mawaqit_api::voices::adhan_voice_url(voice).is_some() {
-            let client = client.clone();
-            let voice = voice.clone();
-            tauri::async_runtime::spawn(async move {
-                let dir = infrastructure::config::voices_dir();
-                if let Err(e) =
-                    mawaqit_api::voices::download_voice(&client, &voice, &dir).await
-                {
-                    eprintln!("voice download failed ({voice}): {e}");
-                }
-            });
-        }
-        return AthanSource::Builtin;
-    }
-    match &alerts.sound {
-        Some(path) => AthanSource::File(PathBuf::from(path)),
-        None => AthanSource::Builtin,
-    }
-}
 
 fn tick(
     handle: &tauri::AppHandle,
@@ -313,76 +276,45 @@ fn tick(
     // tick so the marker follows the passing prayers.
     update_tray_prayers(handle, &prayer_menu_rows(payload, now));
 
-    // Per-prayer alerts: each prayer's heads-up and adhan behavior are
-    // configured independently.
-    for (index, (name, time)) in
-        adhan_entries(&payload.times.adhan).into_iter().enumerate()
-    {
-        let alerts = config.alerts.prayer(index);
-
-        // Pre-adhan notification, exactly once per prayer and day. Config
-        // minutes are attacker-writable: cap before use, and treat 0 as off
-        // (it would coincide with the adhan itself).
-        if let Some(before) = alerts
-            .notify_before_min
-            .map(|n| n.min(MAX_NOTIFY_BEFORE_MIN))
-            .filter(|n| *n > 0)
-        {
-            if let Some(target) = minutes_before(&time, before) {
-                if is_due(now, &target) && alerted.insert(format!("{date}|pre|{name}")) {
-                    notify(handle, "Mawaqit", &minutes_from_now(&name, before));
+    // The alarm decision engine decides WHICH alerts fire; this loop only
+    // executes them (notifications, audio, voice downloads).
+    for action in application::alarm_engine::evaluate_tick(
+        config,
+        payload,
+        now,
+        date,
+        alerted,
+        &infrastructure::config::voices_dir(),
+    ) {
+        match action {
+            application::alarm_engine::AlarmAction::Notify { title, body } => {
+                notify(handle, &title, &body);
+            }
+            application::alarm_engine::AlarmAction::NotifySilent { title, body } => {
+                notify_silent(handle, &title, &body);
+            }
+            application::alarm_engine::AlarmAction::NotifyStoppable { title, body } => {
+                notify_stoppable(handle, &title, &body);
+            }
+            application::alarm_engine::AlarmAction::Play { source, volume } => {
+                if infrastructure::audio::play_athan(source, volume) {
+                    // The UI shows its stop button while the athan sounds.
+                    let _ = handle.emit("athan-started", ());
                 }
             }
-        }
-
-        // At the adhan time.
-        if is_due(now, &time) && alerted.insert(format!("{date}|adhan|{name}")) {
-            let at_time = format!("It is time for the {name} adhan");
-            match alerts.mode {
-                AthanMode::Silent => notify_silent(handle, "Mawaqit", &at_time),
-                AthanMode::Default => notify(handle, "Mawaqit", &at_time),
-                AthanMode::Adhan => {
-                    notify_stoppable(handle, "Mawaqit", &at_time);
-                    let source = resolve_athan_source(alerts, client);
-                    if infrastructure::audio::play_athan(source, alerts.volume) {
-                        // The UI shows its stop button while the athan sounds.
-                        let _ = handle.emit("athan-started", ());
+            application::alarm_engine::AlarmAction::DownloadVoice { id } => {
+                let client = client.clone();
+                tauri::async_runtime::spawn(async move {
+                    let dir = infrastructure::config::voices_dir();
+                    if let Err(e) =
+                        mawaqit_api::voices::download_voice(&client, &id, &dir).await
+                    {
+                        eprintln!("voice download failed ({id}): {e}");
                     }
-                }
+                });
             }
         }
     }
-
-    // Optional iqama alerts (notification only).
-    if config.iqama_alerts {
-        if let Some(iqama) = &payload.times.iqama {
-            for (name, time) in iqama_entries(iqama) {
-                if is_due(now, &time) && alerted.insert(format!("{date}|iqama|{name}")) {
-                    notify(handle, "Mawaqit", &format!("The {name} iqama has started"));
-                }
-            }
-        }
-    }
-
-    // Pre-shurouq notification (notification only — sunrise has no adhan).
-    if let Some(before) = config
-        .alerts
-        .shuruq_notify_before_min
-        .map(|n| n.min(MAX_NOTIFY_BEFORE_MIN))
-        .filter(|n| *n > 0)
-    {
-        if let Some(target) = minutes_before(&payload.times.adhan.shurouq, before) {
-            if is_due(now, &target) && alerted.insert(format!("{date}|pre|Shurouq")) {
-                notify(handle, "Mawaqit", &minutes_from_now("Shurouq", before));
-            }
-        }
-    }
-}
-
-/// "Fajr adhan in 5 minutes" / "…in 1 minute" — singular kept grammatical.
-fn minutes_from_now(event: &str, n: u16) -> String {
-    let unit = if n == 1 { "minute" } else { "minutes" };
-    format!("{event} in {n} {unit}")
 }
 
 /// A plain popup notification (heads-up, iqama, Silent/Default adhan).
