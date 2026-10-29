@@ -269,19 +269,6 @@ describe("fuzz: hostile rendering", () => {
     }
   });
 
-  it("search results never turn mutated names into markup", () => {
-    for (let i = 0; i < 250; i++) {
-      const list = document.createElement("ul");
-      const mosques = Array.from({ length: 5 }, () => ({
-        slug: below(3) === 0 ? undefined : mutateString("some-mosque"),
-        name: mutateString(NAME_SEED),
-        locality: mutateString("Paris"),
-        country: mutateString("France"),
-      }));
-      renderResults(list, mosques as never, () => {});
-      expect(activeElements(list)).toEqual([]);
-    }
-  });
 });
 
 describe("fuzz: seedAlertsFromSound is total", () => {

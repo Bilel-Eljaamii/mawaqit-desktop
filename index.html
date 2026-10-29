@@ -51,13 +51,18 @@
             </p>
 
             <div class="form-group">
-              <label for="ob-search">Find your mosque</label>
+              <label for="ob-search">Connect your mosque</label>
               <div class="search-row">
-                <input type="text" id="ob-search" placeholder="e.g. Paris mosque" />
-                <button class="btn btn-primary" id="ob-search-btn">Search</button>
+                <input type="text" id="ob-search" placeholder="Paste your mosque's mawaqit.net link or slug" />
+                <button class="btn btn-primary" id="ob-search-btn">Connect</button>
               </div>
+              <p class="form-hint">
+                mawaqit.net closed its search to logged-in users. Find your
+                mosque's page on the web (e.g.
+                https://mawaqit.net/en/grande-mosquee-de-paris) and paste the
+                link — or just the slug — here.
+              </p>
             </div>
-            <ul id="ob-results" class="results-list"></ul>
             <div id="ob-status" class="status-msg"></div>
           </div>
         </section>
@@ -117,10 +122,9 @@
         <label>Current mosque</label>
         <div id="set-current-mosque" class="current-mosque">—</div>
         <div class="search-row">
-          <input type="text" id="set-search" placeholder="Search another mosque…" />
-          <button class="btn" id="set-search-btn">Search</button>
+          <input type="text" id="set-search" placeholder="Paste a mawaqit.net link or slug…" />
+          <button class="btn" id="set-search-btn">Connect</button>
         </div>
-        <ul id="set-results" class="results-list"></ul>
       </div>
 
       <div id="set-status" class="status-msg"></div>

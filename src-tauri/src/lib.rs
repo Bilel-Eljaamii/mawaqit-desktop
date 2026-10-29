@@ -47,7 +47,7 @@ pub fn run() {
             presentation::commands::update_config,
             presentation::commands::set_offline_mode,
             presentation::commands::set_tor_enabled,
-            presentation::commands::search_mosques,
+            presentation::commands::resolve_mosque,
             presentation::commands::get_today,
             presentation::commands::get_month,
             presentation::commands::get_month_iqama,

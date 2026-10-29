@@ -116,26 +116,3 @@ export function renderMonthTable(
   table.appendChild(tbody);
 }
 
-/** Search results: hostile mosque names must land as inert text. */
-export function renderResults(
-  list: HTMLElement,
-  mosques: Mosque[],
-  onPick: (m: Mosque) => void,
-): void {
-  list.innerHTML = "";
-  const usable = mosques.filter((m) => m.slug);
-  if (usable.length === 0) {
-    const li = document.createElement("li");
-    li.className = "empty";
-    li.textContent = "No mosque found — try another keyword.";
-    list.appendChild(li);
-    return;
-  }
-  for (const mosque of usable) {
-    const li = document.createElement("li");
-    const place = [mosque.locality, mosque.country].filter(Boolean).join(", ");
-    li.textContent = place ? `${mosqueDisplayName(mosque)} — ${place}` : mosqueDisplayName(mosque);
-    li.addEventListener("click", () => onPick(mosque));
-    list.appendChild(li);
-  }
-}

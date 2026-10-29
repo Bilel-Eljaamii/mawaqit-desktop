@@ -32,36 +32,42 @@ pub fn update_config(
     Ok(())
 }
 
+/// Resolve a mosque from a pasted mawaqit.net page link or bare slug.
+///
+/// Keyword search is gone: mawaqit.net disabled the keyless search API
+/// (HTTP 401 — their own site now sits behind a backoffice login), so the
+/// only keyless discovery left is the public mosque PAGES, which still
+/// serve confData. The user finds their mosque's page on the web and
+/// pastes the link (or just the slug); the page is fetched and the mosque
+/// returned with its real name.
 #[tauri::command]
-pub async fn search_mosques(
+pub async fn resolve_mosque(
     client: State<'_, ClientHolder>,
     query: String,
-) -> Result<Vec<Mosque>, String> {
+) -> Result<Mosque, String> {
     let config = load_config();
     if config.offline_mode {
-        return Err("Offline mode is on — turn it off to search for mosques.".into());
+        return Err("Offline mode is on — turn it off to connect to a mosque.".into());
     }
+    let Some(slug) = slug_from_input(&query) else {
+        return Err("Not a mosque page address — paste a mawaqit.net link like \
+             https://mawaqit.net/en/grande-mosquee-de-paris, or the slug itself."
+            .into());
+    };
     let client = client.current();
-    // mawaqit.net disabled the keyless search API (HTTP 401 — their own
-    // site now sits behind a backoffice login). The public mosque PAGES
-    // still serve confData, so a query that names a page — a full
-    // mawaqit.net URL or a bare slug — resolves directly against the page.
-    if let Some(slug) = slug_from_input(&query) {
-        return match client.conf_data(&slug).await {
-            Ok(conf) => Ok(vec![Mosque {
-                uuid: None,
-                id: None,
-                slug: Some(slug),
-                name: conf.name.clone(),
-                label: None,
-                locality: None,
-                country: None,
-                extra: serde_json::Map::new(),
-            }]),
-            Err(e) => Err(transport_err(&config, e.to_string())),
-        };
+    match client.conf_data(&slug).await {
+        Ok(conf) => Ok(Mosque {
+            uuid: None,
+            id: None,
+            slug: Some(slug),
+            name: conf.name.clone(),
+            label: None,
+            locality: None,
+            country: None,
+            extra: serde_json::Map::new(),
+        }),
+        Err(e) => Err(transport_err(&config, e.to_string())),
     }
-    client.search_mosques(&query).await.map_err(|e| transport_err(&config, e.to_string()))
 }
 
 /// Extract a mosque page slug from a user query: a full mawaqit.net URL
@@ -106,11 +112,12 @@ fn transport_err(config: &AppConfig, msg: String) -> String {
             "Tor is on, but its proxy at {addr} did not answer — start your tor service (or Tor Browser), or turn Tor off in the settings. ({msg})"
         );
     }
-    // mawaqit.net rejected the request as unauthenticated: the search API
-    // now requires credentials (the public mosque pages still work).
+    // mawaqit.net rejected the request as unauthenticated (HTTP 401): the
+    // public mosque pages are what the app keylessly depends on — if they
+    // ever start demanding logins, say so plainly.
     if msg.contains("(HTTP 401)") {
         return format!(
-            "{msg} — mawaqit.net has locked its search API behind a login. Paste a mosque page link (https://mawaqit.net/en/<slug>) into the search box to connect to a mosque."
+            "{msg} — mawaqit.net rejected the request as unauthenticated. If this keeps happening, the public mosque pages may now require a login."
         );
     }
     msg
@@ -436,14 +443,14 @@ mod tests {
     }
 
     #[test]
-    fn unauthorized_search_error_tells_the_user_the_way_out() {
+    fn unauthorized_error_warns_about_a_possible_page_lockdown() {
         let cfg = AppConfig::default();
         let msg = transport_err(
             &cfg,
-            "unexpected response (HTTP 401) from https://mawaqit.net/api/2.0/mosque/search".into(),
+            "unexpected response (HTTP 401) from https://mawaqit.net/en/x".into(),
         );
-        assert!(msg.contains("locked its search API"), "{msg}");
-        assert!(msg.contains("Paste a mosque page link"), "{msg}");
+        assert!(msg.contains("rejected the request as unauthenticated"), "{msg}");
+        assert!(msg.contains("public mosque pages"), "{msg}");
     }
 
     #[test]

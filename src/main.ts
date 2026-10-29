@@ -9,7 +9,6 @@ import {
   mosqueDisplayName,
   parseHhmmToDate,
   renderMonthTable,
-  renderResults,
   sanitizeCssUrl,
 } from "./lib/display";
 import type { DailyIqamaTimes, DailyPrayerTimes, Mosque } from "./lib/display";
@@ -414,19 +413,25 @@ async function loadMonth(): Promise<void> {
   }
 }
 
-// ---- Mosque search (shared by onboarding + settings) ----
+// ---- Mosque connection (shared by onboarding + mosque dialog) ----
+// mawaqit.net closed keyword search to logged-in users, so there is no
+// result list to pick from: the user pastes a mosque page link (or slug)
+// and the backend resolves it against the public page.
 
-async function searchMosques(
+async function connectMosque(
   query: string,
-  list: HTMLElement,
-  onPick: (m: Mosque) => void,
-): Promise<void> {
-  if (!query.trim()) return;
+  status: HTMLElement | null,
+): Promise<Mosque | null> {
+  const q = query.trim();
+  if (!q) return null;
+  if (status) status.textContent = "Connecting…";
   try {
-    const mosques = await invoke<Mosque[]>("search_mosques", { query: query.trim() });
-    renderResults(list, mosques, onPick);
+    const mosque = await invoke<Mosque>("resolve_mosque", { query: q });
+    if (status) status.textContent = "";
+    return mosque;
   } catch (e) {
-    toast(`Search failed: ${e}`);
+    if (status) status.textContent = `${e}`;
+    return null;
   }
 }
 
@@ -1226,40 +1231,36 @@ document.addEventListener("DOMContentLoaded", () => {
     syncNotifyPanel();
   });
 
-  $("ob-search-btn").addEventListener("click", () =>
-    searchMosques(($("ob-search") as HTMLInputElement).value, $("ob-results"), pickOnboardingMosque),
-  );
+  $("ob-search-btn").addEventListener("click", async () => {
+    const mosque = await connectMosque(
+      ($("ob-search") as HTMLInputElement).value,
+      $("ob-status"),
+    );
+    if (mosque) await pickOnboardingMosque(mosque);
+  });
   $("ob-search").addEventListener("keydown", (e) => {
     if ((e as KeyboardEvent).key === "Enter") {
       e.preventDefault();
-      searchMosques(($("ob-search") as HTMLInputElement).value, $("ob-results"), pickOnboardingMosque);
+      $("ob-search-btn").click();
     }
   });
 
-  const runMosqueSearch = (): void => {
-    searchMosques(
+  const connectFromDialog = async (): Promise<void> => {
+    const mosque = await connectMosque(
       ($("set-search") as HTMLInputElement).value,
-      $("set-results"),
-      (m) => {
-        $("set-current-mosque").textContent = mosqueDisplayName(m);
-        void pickMosqueFromDialog(m);
-      },
+      $("set-status"),
     );
+    if (mosque) {
+      $("set-current-mosque").textContent = mosqueDisplayName(mosque);
+      await pickMosqueFromDialog(mosque);
+    }
   };
-  $("set-search-btn").addEventListener("click", runMosqueSearch);
+  $("set-search-btn").addEventListener("click", () => void connectFromDialog());
   $("set-search").addEventListener("keydown", (e) => {
     if ((e as KeyboardEvent).key === "Enter") {
       e.preventDefault();
-      runMosqueSearch();
+      void connectFromDialog();
     }
-  });
-  // Live suggestions: after 4 letters, search as you type (debounced).
-  let suggestTimer: number | null = null;
-  $("set-search").addEventListener("input", () => {
-    const value = ($("set-search") as HTMLInputElement).value.trim();
-    if (suggestTimer !== null) window.clearTimeout(suggestTimer);
-    if (value.length < 4) return;
-    suggestTimer = window.setTimeout(runMosqueSearch, 300);
   });
 
   window.setInterval(tick, 1000);

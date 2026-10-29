@@ -17,7 +17,6 @@ import {
   mosqueDisplayName,
   parseHhmmToDate,
   renderMonthTable,
-  renderResults,
   sanitizeCssUrl,
 } from "../../src/lib/display";
 import type { Mosque } from "../../src/lib/display";
@@ -214,34 +213,6 @@ describe("renderMonthTable with hostile cells", () => {
     expect(activeElements(table)).toEqual([]);
     const highlighted = table.querySelector("tr.today-row");
     expect(highlighted).not.toBeNull();
-  });
-});
-
-describe("renderResults with hostile mosque entries", () => {
-  it("lands hostile names as inert text and filters slug-less entries", () => {
-    const list = document.createElement("ul");
-    const picked: Mosque[] = [];
-    const mosques = [
-      hostileMosque(),
-      { name: XSS_PAYLOADS[4] }, // no slug -> filtered out
-      { slug: "clean", name: "Clean Mosque", locality: "Paris", country: "France" },
-    ];
-    renderResults(list, mosques, (m) => picked.push(m));
-
-    expect(activeElements(list)).toEqual([]);
-    expect(list.querySelectorAll("li")).toHaveLength(2); // slug-less dropped
-    expect(list.querySelectorAll("li.empty")).toHaveLength(0);
-
-    list.querySelectorAll("li")[0].dispatchEvent(new Event("click"));
-    expect(picked).toHaveLength(1);
-    expect(picked[0].slug).toBe("grande-mosquee-de-paris");
-  });
-
-  it("shows the empty-state for hostile-but-unusable results", () => {
-    const list = document.createElement("ul");
-    renderResults(list, [{ name: XSS_PAYLOADS[5] }, {}, { slug: null, name: "x" }], () => {});
-    expect(list.querySelectorAll("li.empty")).toHaveLength(1);
-    expect(activeElements(list)).toEqual([]);
   });
 });
 
